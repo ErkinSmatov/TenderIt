@@ -4,20 +4,20 @@
 
 - **Не соглашайся автоматически.** Если предложение пользователя неоптимально — скажи об этом прямо и предложи лучший вариант с обоснованием. Цель — качественный результат, а не одобрение.
 
-
 ## Repository Structure
 
+**Монорепо** — один git-репозиторий, всё в одном месте:
+
 ```
-TenderIt/                    ← root (this repo) — planning docs only
-├── .planning/               ← GSD planning artifacts (PROJECT.md, ROADMAP.md, etc.)
-├── frontend/                ← Next.js 14 app (SEPARATE git repo)
-└── backend/                 ← FastAPI app (SEPARATE git repo)
+TenderIt/                    ← единственный git repo
+├── .planning/               ← GSD: PROJECT.md, ROADMAP.md, REQUIREMENTS.md, research/
+├── frontend/                ← Next.js 14 (App Router)
+├── backend/                 ← FastAPI (Python 3.12)
+├── CLAUDE.md                ← этот файл
+└── .gitignore
 ```
 
-**IMPORTANT:** `frontend/` and `backend/` are separate git repositories. When committing code:
-- Frontend code → commit inside `frontend/` directory
-- Backend code → commit inside `backend/` directory
-- Planning docs → commit in the root `TenderIt/` repository
+Все коммиты — в один репозиторий. GSD-агенты могут видеть и frontend, и backend одновременно и запускать задачи параллельно.
 
 ## Project Context
 
@@ -70,6 +70,8 @@ TenderIt/                    ← root (this repo) — planning docs only
 
 ## GSD Workflow
 
-Run `/gsd-plan-phase 1` to start planning Phase 1.
-Run `/gsd-execute-phase 1` to execute a planned phase.
-Run `/gsd-progress` to check current status.
+```bash
+/gsd-plan-phase 1      # спланировать фазу
+/gsd-execute-phase 1   # выполнить (запускает frontend + backend агентов параллельно)
+/gsd-progress          # статус проекта
+```

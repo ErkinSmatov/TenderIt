@@ -1,2 +1,16 @@
-frontend/
-backend/
+# dependencies
+frontend/node_modules/
+backend/.venv/
+backend/__pycache__/
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# build outputs
+frontend/.next/
+frontend/out/
+
+# OS
+.DS_Store
