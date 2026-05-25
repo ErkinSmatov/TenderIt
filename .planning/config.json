@@ -4,6 +4,10 @@
   "parallelization": true,
   "commit_docs": true,
   "model_profile": "balanced",
+  "planning": {
+    "sub_repos": ["frontend", "backend"],
+    "root_repo": "planning"
+  },
   "workflow": {
     "research": true,
     "plan_check": true,
