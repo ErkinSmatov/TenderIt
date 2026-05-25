@@ -93,13 +93,48 @@
 
 ## Traceability
 
-| REQ-ID | Phase |
-|--------|-------|
-| SPIKE-01..05 | Phase 1 |
-| AUTH-01..04, COMP-01..02 | Phase 2 |
-| SRCH-01..07 | Phase 3 |
-| DOCS-01..05 | Phase 3 |
-| SIGN-01..05, APPL-01..06 | Phase 4 |
-| NOTIF-01..05 | Phase 5 |
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| SPIKE-01 | Phase 1 — Spikes & Foundation | Pending |
+| SPIKE-02 | Phase 1 — Spikes & Foundation | Pending |
+| SPIKE-03 | Phase 1 — Spikes & Foundation | Pending |
+| SPIKE-04 | Phase 1 — Spikes & Foundation | Pending |
+| SPIKE-05 | Phase 1 — Spikes & Foundation | Pending |
+| AUTH-01 | Phase 2 — Auth & Company Profile | Pending |
+| AUTH-02 | Phase 2 — Auth & Company Profile | Pending |
+| AUTH-03 | Phase 2 — Auth & Company Profile | Pending |
+| AUTH-04 | Phase 2 — Auth & Company Profile | Pending |
+| COMP-01 | Phase 2 — Auth & Company Profile | Pending |
+| COMP-02 | Phase 2 — Auth & Company Profile | Pending |
+| SRCH-01 | Phase 3 — Tender Data Pipeline | Pending |
+| SRCH-02 | Phase 3 — Tender Data Pipeline | Pending |
+| SRCH-03 | Phase 3 — Tender Data Pipeline | Pending |
+| SRCH-04 | Phase 3 — Tender Data Pipeline | Pending |
+| SRCH-05 | Phase 3 — Tender Data Pipeline | Pending |
+| SRCH-06 | Phase 3 — Tender Data Pipeline | Pending |
+| SRCH-07 | Phase 3 — Tender Data Pipeline | Pending |
+| DOCS-01 | Phase 4 — Document Vault | Pending |
+| DOCS-02 | Phase 4 — Document Vault | Pending |
+| DOCS-03 | Phase 4 — Document Vault | Pending |
+| DOCS-04 | Phase 4 — Document Vault | Pending |
+| DOCS-05 | Phase 4 — Document Vault | Pending |
+| SIGN-01 | Phase 5 — EDS Signing & Submission | Pending |
+| SIGN-02 | Phase 5 — EDS Signing & Submission | Pending |
+| SIGN-03 | Phase 5 — EDS Signing & Submission | Pending |
+| SIGN-04 | Phase 5 — EDS Signing & Submission | Pending |
+| SIGN-05 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-01 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-02 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-03 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-04 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-05 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-06 | Phase 5 — EDS Signing & Submission | Pending |
+| NOTIF-01 | Phase 6 — Notifications | Pending |
+| NOTIF-02 | Phase 6 — Notifications | Pending |
+| NOTIF-03 | Phase 6 — Notifications | Pending |
+| NOTIF-04 | Phase 6 — Notifications | Pending |
+| NOTIF-05 | Phase 6 — Notifications | Pending |
 
-*Traceability refined by roadmapper*
+**Total v1 requirements: 39 | Mapped: 39/39**
+
+*Traceability finalized by roadmapper — 2026-05-25*
