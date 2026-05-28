@@ -14,3 +14,7 @@ frontend/out/
 
 # OS
 .DS_Store
+
+# Spike raw captures — may contain session tokens, cookies, PII; never commit
+backend/spikes/findings/raw-captures/
+backend/spikes/findings/*.har

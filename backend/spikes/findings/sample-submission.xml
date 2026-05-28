@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SAMPLE ANONYMIZED SUBMISSION XML — SPIKE-03 Template
+  Status: TEMPLATE — awaiting live capture from goszakup.gov.kz
+
+  This file shows the EXPECTED structure of the unsigned XML payload (`payloadXml`)
+  that goszakup portal generates and sends to the browser before NCALayer signing.
+
+  All PII replaced with placeholders:
+    - BIN → 123456789012
+    - IIN → 000000000000
+    - Company name → ТОО Тест Компания
+    - Director name → Иванов Иван Иванович
+
+  Fields marked [TO CONFIRM] require live capture (SPIKE-03 Task 1).
+
+  After NCALayer signing, the <ds:Signature> block is appended by NCALayer
+  (shown at bottom of this file). The signed result is what gets submitted to goszakup.
+
+  Encoding note: goszakup v3 API uses UTF-8. Older SOAP/OWS endpoints may use Windows-1251.
+  Confirm the encoding declaration from the actual captured XML.
+-->
+
+<!-- =====================================================================
+     PART 1: UNSIGNED PAYLOAD XML (what goszakup sends to browser / NCALayer)
+     This is the `payloadXml` / `xmlToSign` value before signing.
+     [TO FILL — replace this entire block with the actual unsigned XML from capture]
+     ===================================================================== -->
+<TenderApplication xmlns="http://goszakup.gov.kz/tender/application"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://goszakup.gov.kz/tender/application application.xsd">
+  <!--
+    NOTE: The root element name and namespace declarations above are PROVISIONAL.
+    Confirmed names from prior public research on goszakup XML schema.
+    Replace with actual observed values after capture.
+    [TO CONFIRM: root element name, namespace URI, schemaLocation]
+  -->
+
+  <Header>
+    <AnnounceNumber>23062400076</AnnounceNumber>
+    <!-- [TO CONFIRM: AnnounceNumber vs TrdBuyId vs both] -->
+    <TrdBuyId>99999999</TrdBuyId>
+    <ApplicationDate>2024-01-15T10:30:00+06:00</ApplicationDate>
+    <!-- [TO CONFIRM: date format — ISO 8601 with timezone vs UTC vs Almaty local] -->
+  </Header>
+
+  <Supplier>
+    <BIN>123456789012</BIN>
+    <!-- [TO CONFIRM: is IIN also required here for sole proprietors?] -->
+    <IIN>000000000000</IIN>
+    <Name>ТОО Тест Компания</Name>
+    <Director>Иванов Иван Иванович</Director>
+    <LegalAddress>г. Алматы, ул. Абая, 150</LegalAddress>
+    <Phone>+70000000000</Phone>
+    <Email>test@example.kz</Email>
+  </Supplier>
+
+  <Lots>
+    <Lot>
+      <LotId>1</LotId>
+      <LotNumber>1</LotNumber>
+      <Quantity>10</Quantity>
+      <!-- [TO CONFIRM: quantity as integer or decimal] -->
+      <UnitPrice>45000.00</UnitPrice>
+      <!-- [TO CONFIRM: decimal separator — period or comma?] -->
+      <TotalPrice>450000.00</TotalPrice>
+      <MeasureUnit>шт</MeasureUnit>
+      <!-- [TO CONFIRM: MeasureUnit as text string or integer code?] -->
+      <Currency>KZT</Currency>
+      <DeliveryPlace>г. Алматы, ул. Примерная, 1</DeliveryPlace>
+      <DeliveryTerm>30</DeliveryTerm>
+      <!-- [TO CONFIRM: DeliveryTerm in calendar days as integer?] -->
+      <PaymentTerm>по факту поставки</PaymentTerm>
+    </Lot>
+  </Lots>
+
+  <Documents>
+    <Document>
+      <DocTypeId>1</DocTypeId>
+      <!-- [TO CONFIRM: doc type ID codes — goszakup reference directory] -->
+      <DocTypeName>Свидетельство о регистрации</DocTypeName>
+      <FileName>registration_certificate.pdf</FileName>
+      <FileId>00000000-0000-0000-0000-000000000001</FileId>
+      <!-- [TO CONFIRM: FileId is UUID from prior upload call, or something else?] -->
+    </Document>
+  </Documents>
+
+  <PriceInfo>
+    <TotalPrice>450000.00</TotalPrice>
+    <VatPercent>0</VatPercent>
+    <!-- [TO CONFIRM: VatPercent as integer (0, 12) or decimal (0.00, 12.00)?] -->
+    <TotalPriceWithVat>450000.00</TotalPriceWithVat>
+  </PriceInfo>
+
+  <!--
+    The <ds:Signature> block below is appended HERE by NCALayer after signing.
+    The portal sends this XML WITHOUT the signature; NCALayer adds it.
+    See PART 2 below for the post-signing structure.
+  -->
+
+</TenderApplication>
+
+
+<!-- =====================================================================
+     PART 2: SIGNED XML (what goszakup receives after NCALayer processing)
+     This is the `signedXml` value POSTed to the goszakup submission endpoint.
+     [TO FILL — replace with actual signed XML structure from NCALayer response]
+     ===================================================================== -->
+<!--
+<?xml version="1.0" encoding="UTF-8"?>
+<TenderApplication xmlns="http://goszakup.gov.kz/tender/application"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+
+  ... (same content as unsigned XML above) ...
+
+  <ds:Signature>
+    <!-- XMLDSig signature block appended by NCALayer -->
+    <ds:SignedInfo>
+      <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+      <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#ecdsaWithSHA256"/>
+      <!-- [TO CONFIRM: algorithm — ECDSA (Kazakhstan standard GOST 3410-2015) or RSA?] -->
+      <ds:Reference URI="">
+        <ds:Transforms>
+          <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+        </ds:Transforms>
+        <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+        <ds:DigestValue>[DIGEST_VALUE_REDACTED]</ds:DigestValue>
+      </ds:Reference>
+    </ds:SignedInfo>
+    <ds:SignatureValue>[SIGNATURE_BYTES_REDACTED]</ds:SignatureValue>
+    <ds:KeyInfo>
+      <ds:X509Data>
+        <ds:X509Certificate>[X509_CERTIFICATE_REDACTED]</ds:X509Certificate>
+      </ds:X509Data>
+    </ds:KeyInfo>
+  </ds:Signature>
+
+</TenderApplication>
+-->
+
+<!--
+  ALTERNATIVE: CMS/PKCS#7 wrapper (if goszakup uses CMS instead of XMLDSig)
+  [TO CONFIRM from captured NCALayer response — is it XMLDSig embedded signature
+  or a detached CMS (PKCS#7) that wraps the XML?]
+
+  CMS variant would look like base64-encoded PKCS#7 data in the signedXml field:
+  MIIFxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...
+  (standard ASN.1/DER encoded CMS, NOT XML-based signature)
+-->
