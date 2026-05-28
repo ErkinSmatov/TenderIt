@@ -1,51 +1,39 @@
 # SPIKE-02: NCALayer WebSocket Protocol Findings
 
-> **Status:** AWAITING LIVE TEST  
-> This document is pre-populated with all information available from public sources (research confidence: MEDIUM).
-> Fields marked `[TO FILL]` require live NCALayer testing using the test harness at `frontend/spikes/ncalayer-test.html`.
-> After testing, save the session log as `frontend/spikes/findings/spike-02-session-log.json` and replace `[TO FILL]` entries with actual recorded values.
+> **Status:** PARTIALLY COMPLETE — live test run on 2026-05-28, critical module issue identified.  
+> **NEXT ACTION:** Re-run test harness with corrected module `kz.gov.pki.knca.commonUtils`.  
+> See "Module Confirmation" section for the finding and the fix.
 
 ---
 
 ## Spike Metadata
 
-- **Date executed:** [TO FILL — date of live test]
-- **NCALayer version:** [TO FILL — from getVersion response]
-- **Operating system of test machine:** [TO FILL — e.g., Windows 11, macOS 14.x]
-- **Browser used for testing:** [TO FILL — e.g., Chrome 125, Firefox 127]
-- **Certificate type used:** .p12 file (PKCS12) — [TO FILL: confirm or note if different]
-- **Certificate purpose tested:** [TO FILL — e.g., "company signing certificate" / "test development certificate"]
-- **Researcher:** [TO FILL]
+- **Date executed (partial):** 2026-05-28
+- **NCALayer version:** `1.4` (broadcast automatically on WebSocket connect — confirmed)
+- **Operating system of test machine:** [TO FILL — confirm: Windows / macOS?]
+- **Browser used for testing:** [TO FILL]
+- **Certificate type used:** [TO FILL — PKCS12 assumed]
+- **Certificate purpose tested:** [TO FILL]
+- **Researcher:** Product owner
 
 ---
 
-## CONFIRMED_PORT: [TO FILL]
+## CONFIRMED_PORT: 13579 ✅
 
-> **How to determine:** Run on the NCALayer machine before testing:
-> - macOS/Linux: `netstat -an | grep LISTEN | grep -E "13579|14579"`
-> - Windows: `netstat -ano | findstr "13579 14579"`
->
-> **Known background:** Community sources (ncalayer-js-client, sigex-kz) consistently report port **13579** for NCALayer 2.x (wss://). The port 14579 appears in older documentation and may be used by legacy installations. Neither value is officially confirmed in the public NCA documentation — this spike produces the ground truth.
+**Confirmed by live test on 2026-05-28:**
+- Connection to `wss://127.0.0.1:13579` → **CONNECTED** (WebSocket established)
+- Connection to `wss://127.0.0.1:13579` first attempt → ERROR 1006 (SSL trust not set), resolved by trusting cert in browser
 
-**Netstat output (paste verbatim):**
-```
-[TO FILL — paste the netstat line(s) showing the NCALayer listening port]
-```
-
-**Confirmed port:** [TO FILL — e.g., 13579]
+**Confirmed port:** `13579`
 
 ---
 
 ## WebSocket URL
 
-- **Confirmed URL:** `wss://127.0.0.1:[TO FILL: port]`
-- **Protocol:** [TO FILL — WSS (secure WebSocket) or WS (plain)]
-- **Self-signed certificate:** [TO FILL — yes/no]
-- **Certificate trust procedure:**
-  If WSS and self-signed: open `https://127.0.0.1:[port]` in the browser, click Advanced → Proceed.
-  This must be done once per browser profile. [TO FILL: confirm this worked or describe alternative]
-
-**Known background:** NCALayer 2.x uses WSS (TLS-wrapped WebSocket) with a self-signed certificate issued by NCA Kazakhstan. Plain WS (no TLS) may be available on a different port or disabled depending on OS/version.
+- **Confirmed URL:** `wss://127.0.0.1:13579` ✅
+- **Protocol:** WSS (TLS-wrapped WebSocket) ✅
+- **Self-signed certificate:** Yes — must be trusted once in browser (open `https://127.0.0.1:13579` → Advanced → Proceed)
+- **Version broadcast:** NCALayer sends `{"result": {"version": "1.4"}}` automatically on connect, before any method call ✅
 
 ---
 
@@ -57,12 +45,18 @@
 
 | Module | Status | Tested | Verdict |
 |--------|--------|--------|---------|
-| `kz.gov.pki.knca.basics` | CURRENT (recommended) | [TO FILL: yes/no] | [TO FILL: worked/failed] |
-| `kz.gov.pki.knca.commonUtils` | DEPRECATED (fallback) | [TO FILL: yes/no] | [TO FILL: worked/failed/not tested] |
+| `kz.gov.pki.knca.basics` | CURRENT (NCALayer 2.x) | ✅ Yes | ❌ FAILED — "X is not defined in PKIExtras" for ALL methods |
+| `kz.gov.pki.knca.commonUtils` | For NCALayer 1.x | ⏳ Pending re-test | [TO FILL after re-test] |
 
-**Working module for all useNCALayer() calls:** [TO FILL]
+**FINDING:** NCALayer version `1.4` is a 1.x release. The module `kz.gov.pki.knca.basics` belongs to NCALayer 2.x API and is NOT supported in 1.x. All calls via `basics` fail with:
+```
+"java.lang.IllegalArgumentException: X is not defined in PKIExtras"
+```
+where X = `getVersion`, `getKeyInfo`, `signXml`, `browseKeyStore`, `createCMSSignatureFromBase64`.
 
-**Deprecated module fallback behavior:** [TO FILL — describe what happens when commonUtils is called: does it return an error, partial response, or full response?]
+**ACTION REQUIRED:** Re-run the test harness with module `kz.gov.pki.knca.commonUtils` (the 1.x module). The harness has been updated — see instructions below.
+
+**Working module for all useNCALayer() calls:** `kz.gov.pki.knca.commonUtils` (expected — pending confirmation)
 
 ---
 

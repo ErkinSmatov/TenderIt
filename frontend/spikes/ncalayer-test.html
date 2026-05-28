@@ -247,6 +247,22 @@
       <input type="text" id="url-fallback" value="ws://127.0.0.1:14579">
     </div>
 
+    <div class="connection-row" style="margin-top:8px;">
+      <label>NCALayer Module:</label>
+      <select id="module-select" onchange="ACTIVE_MODULE = this.value"
+              style="padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px; flex:1; max-width:380px;">
+        <option value="kz.gov.pki.knca.commonUtils" selected>
+          kz.gov.pki.knca.commonUtils — NCALayer 1.x (version 1.4 confirmed)
+        </option>
+        <option value="kz.gov.pki.knca.basics">
+          kz.gov.pki.knca.basics — NCALayer 2.x
+        </option>
+      </select>
+    </div>
+    <div style="font-size:11px; color:#856404; background:#fff3cd; padding:6px 10px; border-radius:4px; margin-bottom:8px;">
+      ⚠️ SPIKE-02 finding (2026-05-28): <code>kz.gov.pki.knca.basics</code> fails on NCALayer 1.4 with "not defined in PKIExtras".
+      Use <strong>commonUtils</strong> for NCALayer 1.x.
+    </div>
     <div class="btn-row">
       <button class="primary" onclick="connect(document.getElementById('url-primary').value)">Connect (13579)</button>
       <button onclick="connect(document.getElementById('url-fallback').value)" style="margin-left:0;">Connect (14579 fallback)</button>
@@ -335,11 +351,18 @@
     ];
 
     // ── Module constants ─────────────────────────────────────────
-    // IMPORTANT: kz.gov.pki.knca.basics is the CURRENT module (NCALayer 2.x).
-    // kz.gov.pki.knca.commonUtils is DEPRECATED/legacy. If basics fails with
-    // "method not found", try commonUtils as a fallback.
+    // NCALayer 1.x (version < 2.0) → use kz.gov.pki.knca.commonUtils
+    // NCALayer 2.x (version ≥ 2.0) → use kz.gov.pki.knca.basics
+    //
+    // SPIKE-02 FINDING (2026-05-28): Live test with NCALayer 1.4 confirmed that
+    // kz.gov.pki.knca.basics fails with "X is not defined in PKIExtras" for ALL methods.
+    // Active module is now set to commonUtils (1.x API). Toggle via the UI selector.
     const MODULE_BASICS    = 'kz.gov.pki.knca.basics';
-    const MODULE_LEGACY    = 'kz.gov.pki.knca.commonUtils';  // deprecated — fallback only
+    const MODULE_LEGACY    = 'kz.gov.pki.knca.commonUtils';
+
+    // Active module — NCALayer 1.4 confirmed → use commonUtils
+    // Change to MODULE_BASICS if testing NCALayer 2.x
+    let ACTIVE_MODULE = MODULE_LEGACY;
 
     // ── Utility ──────────────────────────────────────────────────
     function now() {
@@ -514,7 +537,7 @@
     // Record which module version works in SPIKE-02-FINDINGS.md.
     function sendGetVersion() {
       sendMessage({
-        module: MODULE_BASICS,
+        module: ACTIVE_MODULE,
         method: 'getVersion'
         // Note: 'args' is intentionally omitted for getVersion — some versions require no args.
         // If you get "invalid args", try adding: args: {}
@@ -534,7 +557,7 @@
     // all certificate fields: subject, keyType, notBefore, notAfter, issuer, certSN.
     function sendGetKeyInfo() {
       sendMessage({
-        module: MODULE_BASICS,
+        module: ACTIVE_MODULE,
         method: 'getKeyInfo',
         args: {
           tokenType: 'PKCS12'  // .p12 file (most common for ЭЦП in Kazakhstan)
@@ -553,7 +576,7 @@
     // ── Browse Key Store ──────────────────────────────────────────
     function sendBrowseKeyStore() {
       sendMessage({
-        module: MODULE_BASICS,
+        module: ACTIVE_MODULE,
         method: 'browseKeyStore',
         args: {
           tokenType: 'PKCS12',
@@ -580,7 +603,7 @@
       const xmlBase64 = toBase64(xmlRaw);
 
       sendMessage({
-        module: MODULE_BASICS,
+        module: ACTIVE_MODULE,
         method: 'signXml',
         args: {
           tokenType: 'PKCS12',
@@ -624,7 +647,7 @@
       const dataBase64 = toBase64(rawData);
 
       sendMessage({
-        module: MODULE_BASICS,
+        module: ACTIVE_MODULE,
         method: 'createCMSSignatureFromBase64',
         args: {
           tokenType: 'PKCS12',

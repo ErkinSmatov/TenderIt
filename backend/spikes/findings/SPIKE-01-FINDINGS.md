@@ -1,8 +1,8 @@
 # SPIKE-01 Findings: goszakup.gov.kz v3 GraphQL API
 
-> **Status:** PARTIALLY COMPLETE  
-> Sections marked `[PENDING — token required]` will be populated after the human-action
-> checkpoint in Task 2 is resolved (API token obtained and spike script executed).
+> **Status:** PARTIALLY COMPLETE — mutation verdict CONFIRMED via schema browser (2026-05-28)  
+> Sections marked `[PENDING — token required]` will be populated after the API token is received.
+> The critical Phase 5 gate (mutation existence) is already resolved — see D-S01-01.
 
 ---
 
@@ -81,9 +81,10 @@ from `spike-01-schema.json`:
   - TrdApp: [PENDING]
   - Supplier: [PENDING]
 
-**Note on schema browser:** A public schema browser may be available at
-https://ows.goszakup.gov.kz/help/v3/schema/ — check this URL in a browser even without a token.
-If accessible, it can answer the mutation question before the token arrives.
+**Schema browser verdict (2026-05-28, no token required):**
+URL `https://ows.goszakup.gov.kz/help/v3/schema/` was checked manually.
+**`Mutation` type is NOT present in the schema.**
+This resolves the critical Phase 5 gate — see D-S01-01 below.
 
 ---
 
@@ -116,13 +117,17 @@ Once executed, paste the first item from `spike-01-trdbuy-sample.json` here.
 
 ### D-S01-01: Submission approach for Phase 5
 
-- **EVIDENCE:** `[PENDING — introspection result needed to determine mutation existence]`
-- **DECISION:** `[PENDING — Use GraphQL mutation / Use browser automation / Requires further investigation]`
-- **IMPACT:** If `mutationType` is NOT present in the schema, Phase 5 (APPL-03) cannot
-  use a direct API call to submit tender applications. The architecture must instead use
-  browser automation (Playwright) or capture the undocumented submission REST endpoint
-  via browser traffic analysis (SPIKE-03). This is the highest-priority finding from
-  this spike.
+- **EVIDENCE:** Schema browser at `https://ows.goszakup.gov.kz/help/v3/schema/` checked manually on 2026-05-28. **`Mutation` type is NOT present.** No submission mutations exist in the public goszakup v3 GraphQL API.
+- **DECISION:** ✅ **ACCEPTED — Phase 5 CANNOT use GraphQL mutation for tender submission.**
+  The submission mechanism must be determined by SPIKE-03 (browser traffic capture).
+  Two candidate approaches:
+  1. **Undocumented REST endpoint** — if SPIKE-03 capture reveals a REST POST to a goszakup submission API (most likely, given Yii2 backend)
+  2. **Browser automation (Playwright)** — fallback if no stable REST endpoint is found
+- **IMPACT:** 
+  - SPIKE-03 is now the critical path for Phase 5 architecture
+  - Phase 5 plan must be revised: APPL-03 is not a GraphQL mutation call — it's a REST POST or Playwright automation
+  - The signed XML from NCALayer will be submitted to a REST endpoint, not via GraphQL
+- **CONFIRMED:** 2026-05-28
 
 ### D-S01-02: ARQ sync interval
 
@@ -134,8 +139,7 @@ Once executed, paste the first item from `spike-01-trdbuy-sample.json` here.
 
 ## Open Questions After Spike
 
-1. **Does `mutationType` exist?** — The single most important question for Phase 5 architecture.
-   Cannot be answered without a valid API token.
+1. ~~**Does `mutationType` exist?**~~ — **RESOLVED (2026-05-28): NO.** Mutation type is absent from the goszakup v3 GraphQL schema. Phase 5 will use a REST endpoint (per SPIKE-03 findings) or Playwright automation.
 
 2. **Is schema introspection enabled?** — Some production GraphQL APIs disable introspection.
    If disabled, schema must be reconstructed from the public schema browser at
