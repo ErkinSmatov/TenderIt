@@ -10,7 +10,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Spikes & Foundation** — Resolve all critical unknowns and stand up the project skeleton
+- [x] **Phase 1: Spikes & Foundation** — Resolve all critical unknowns and stand up the project skeleton (completed 2026-05-28)
 - [ ] **Phase 2: Auth & Company Profile** — Users can register, log in, and maintain a verified company identity
 - [ ] **Phase 3: Tender Data Pipeline** — Users can search and browse aggregated tenders from both portals
 - [ ] **Phase 4: Document Vault** — Users can store, categorise, and track expiry of company documents
@@ -109,7 +109,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Spikes & Foundation | 1/5 | In Progress|  |
+| 1. Spikes & Foundation | 5/5 | Complete   | 2026-05-28 |
 | 2. Auth & Company Profile | 0/0 | Not started | - |
 | 3. Tender Data Pipeline | 0/0 | Not started | - |
 | 4. Document Vault | 0/0 | Not started | - |
