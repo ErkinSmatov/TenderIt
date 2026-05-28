@@ -45,7 +45,12 @@
   2. User can log in and remain authenticated across browser sessions (JWT refresh flow) until they explicitly log out
   3. User can reset a forgotten password via an emailed link and set a new password successfully
   4. User can fill in and save company profile fields (BIN, company name, legal address) and edit them at any later time
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 02-01-PLAN.md — Wave 0 foundation: settings, deps, models, migration, BIN validator, test scaffolding
+- [ ] 02-02-PLAN.md — Wave 1 vertical slice: registration + login + middleware + dashboard placeholder
+- [ ] 02-03-PLAN.md — Wave 2: refresh token rotation + logout
+- [ ] 02-04-PLAN.md — Wave 3: password reset (forgot + reset endpoints + pages)
+- [ ] 02-05-PLAN.md — Wave 4: company profile GET/PUT + profile page + form
 **UI hint**: yes
 
 ### Phase 3: Tender Data Pipeline
@@ -110,7 +115,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Spikes & Foundation | 5/5 | Complete   | 2026-05-28 |
-| 2. Auth & Company Profile | 0/0 | Not started | - |
+| 2. Auth & Company Profile | 0/5 | Not started | - |
 | 3. Tender Data Pipeline | 0/0 | Not started | - |
 | 4. Document Vault | 0/0 | Not started | - |
 | 5. EDS Signing & Submission | 0/0 | Not started | - |

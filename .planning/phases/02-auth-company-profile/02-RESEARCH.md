@@ -461,22 +461,17 @@ export function LoginForm() {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Resend domain verification status**
-   - What we know: Resend SDK is simple; free tier is sufficient for MVP
-   - What's unclear: Whether `tenderit.kz` (or whatever the sending domain is) has been verified with Resend yet
-   - Recommendation: Make Wave 0 include "verify sending domain with Resend" or fall back to `SECRET_KEY=resend_test_key` + Resend test mode for development
+1. **Resend domain verification status** — RESOLVED
+   - Decision: Dev environment uses `settings.debug == True` fallback — reset link printed to stdout (no real email sent). Resend API key is optional for dev. Domain verification is a pre-production step, not a Wave 0 blocker.
+   - Wave 0 task: Add `RESEND_API_KEY` to `.env.example` with placeholder; `email_service.py` sends email only when key is set, otherwise logs to stdout.
 
-2. **JWT secret rotation strategy**
-   - What we know: `settings.secret_key` is currently `"change-me-in-production"` in config.py
-   - What's unclear: How secrets are managed in prod (env file, secrets manager, etc.)
-   - Recommendation: Wave 0 must add `JWT_SECRET`, `RESEND_API_KEY` to `.env.example` and Settings; execution plan includes "rotate secret key before any staging deploy"
+2. **JWT secret rotation strategy** — RESOLVED
+   - Decision: `JWT_SECRET` is a required env var (no default). Settings model raises `ValidationError` at startup if absent. `.env.example` includes `JWT_SECRET=change-me-in-dev`. Production deployments must set the real secret. No secrets manager needed for MVP — plain env var on the server.
 
-3. **HTTPS in local development**
-   - What we know: httpOnly + Secure cookies require HTTPS
-   - What's unclear: Whether the dev setup uses HTTP or has a local TLS cert
-   - Recommendation: Use `secure=False` in development (`settings.debug == True`) and `secure=True` in production; conditionally set in `set_auth_cookies()`
+3. **HTTPS in local development** — RESOLVED
+   - Decision: `secure=not settings.debug` guard on all cookie sets. Local dev runs on HTTP (`DEBUG=True`) so Secure flag is off. Production (`DEBUG=False`) enforces `Secure=True`. This is already codified in the plan actions for `set_auth_cookies()` in 02-02-PLAN.md.
 
 ---
 
