@@ -1,0 +1,107 @@
+{
+  "_comment": "SPIKE-04 MP.kz integration findings — to be populated after human network traffic analysis",
+  "_status": "TEMPLATE — awaiting SPIKE-04 checkpoint completion",
+  "_instructions": "After completing browser DevTools analysis of mp.kz, replace this template with actual findings. Choose ONE of the two schema variants below based on what was discovered.",
+
+  "_schema_variant_A_if_api_found": {
+    "_use_this_if": "MP.kz returns application/json responses from Fetch/XHR requests",
+    "verdict": "internal_api_found",
+    "approach": "api",
+    "base_url": "[e.g., https://mp.kz/api/v1 or https://api.mp.kz]",
+    "api_type": "[rest | graphql | mixed]",
+    "auth": {
+      "required": "[true | false]",
+      "mechanism": "[session_cookie | bearer_token | api_key | none]",
+      "cookie_name": "[e.g., mp_session — or null if not cookie-based]",
+      "obtainable_without_account": "[true | false]"
+    },
+    "endpoints": [
+      {
+        "purpose": "tender_listing",
+        "method": "[GET | POST]",
+        "path": "[e.g., /api/v1/tenders or /graphql]",
+        "query_params": "[e.g., ?page=1&limit=20&status=active&region=almaty]",
+        "auth_required": "[true | false]",
+        "sample_response_fields": ["id", "title", "amount", "deadline", "region", "status"],
+        "notes": "[any observed pagination, sorting, or filtering behavior]"
+      },
+      {
+        "purpose": "tender_detail",
+        "method": "[GET]",
+        "path": "[e.g., /api/v1/tenders/{id}]",
+        "query_params": "[none | ?id=12345]",
+        "auth_required": "[true | false]",
+        "sample_response_fields": ["id", "title", "description", "amount", "deadline", "documents"],
+        "notes": ""
+      },
+      {
+        "purpose": "search",
+        "method": "[GET | POST]",
+        "path": "[e.g., /api/v1/tenders/search]",
+        "query_params": "[e.g., ?q=keyword&category=IT&region=almaty]",
+        "auth_required": "[true | false]",
+        "sample_response_fields": [],
+        "notes": ""
+      }
+    ],
+    "pagination": {
+      "mechanism": "[page_number | cursor | offset | load_more_button]",
+      "page_param": "[e.g., page | cursor | offset]",
+      "size_param": "[e.g., limit | size | per_page]",
+      "default_page_size": "[e.g., 20]"
+    },
+    "rate_limiting": {
+      "observed": "[true | false]",
+      "limit_observed": "[e.g., 100 req/min | not observed]",
+      "throttle_behavior": "[429 status | silent drop | redirect to login]"
+    },
+    "sample_tender_response": {
+      "_note": "Replace with actual JSON snippet from browser DevTools (remove personal data)",
+      "id": "EXAMPLE-001",
+      "title": "Example tender title from mp.kz",
+      "amount": 0,
+      "currency": "KZT",
+      "deadline": "YYYY-MM-DD",
+      "region": "Алматы"
+    }
+  },
+
+  "_schema_variant_B_if_no_api_found": {
+    "_use_this_if": "MP.kz returns text/html from all Fetch/XHR requests (server-rendered, no JSON API)",
+    "verdict": "no_internal_api",
+    "approach": "playwright",
+    "listings_page_url": "[e.g., https://mp.kz/tenders]",
+    "page_type": "[server_rendered_html | spa_with_js_rendering]",
+    "auth": {
+      "required_for_listings": "[true | false]",
+      "notes": "[whether incognito browsing shows tender listings]"
+    },
+    "page_selectors": {
+      "tender_list_container": "[CSS selector for the main list container]",
+      "tender_card": "[CSS selector for each individual tender card]",
+      "title": "[CSS selector]",
+      "amount": "[CSS selector]",
+      "deadline": "[CSS selector]",
+      "region": "[CSS selector]",
+      "tender_id": "[CSS selector or data attribute]",
+      "detail_link": "[CSS selector for link to tender detail page]"
+    },
+    "pagination": {
+      "type": "[page_numbers | infinite_scroll | load_more_button | next_prev_buttons]",
+      "selector": "[CSS selector for pagination control]",
+      "url_pattern": "[e.g., https://mp.kz/tenders?page=2 | null if JS-only]",
+      "trigger": "[click | scroll | url_change]"
+    },
+    "playwright_config": {
+      "wait_strategy": "[networkidle | waitForSelector('.tender-card') | load]",
+      "estimated_load_time_ms": "[e.g., 3000]",
+      "requires_js_execution": "[true | false]",
+      "infinite_scroll": "[true | false]",
+      "scroll_trigger_selector": "[selector or null]"
+    },
+    "sample_page_structure": {
+      "_note": "Paste the relevant HTML snippet from the tender listing page (DevTools → Elements tab), showing the structure of 1-2 tender cards with the selectors identified above",
+      "html_snippet": "[PASTE HTML HERE]"
+    }
+  }
+}
