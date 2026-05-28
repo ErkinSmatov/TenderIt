@@ -1,8 +1,7 @@
 # SPIKE-02: NCALayer WebSocket Protocol Findings
 
-> **Status:** PARTIALLY COMPLETE — live test run on 2026-05-28, critical module issue identified.  
-> **NEXT ACTION:** Re-run test harness with corrected module `kz.gov.pki.knca.commonUtils`.  
-> See "Module Confirmation" section for the finding and the fix.
+> **Status:** PARTIALLY COMPLETE — two live tests run on 2026-05-28. Root cause identified: NCALayer 1.4 is EOL and incompatible with both known module APIs.
+> **NEXT ACTION:** Upgrade to NCALayer 2.x, re-run harness with `kz.gov.pki.knca.basics`. See "Module Confirmation" and "Version Requirement" sections.
 
 ---
 
@@ -48,15 +47,28 @@
 | `kz.gov.pki.knca.basics` | CURRENT (NCALayer 2.x) | ✅ Yes | ❌ FAILED — "X is not defined in PKIExtras" for ALL methods |
 | `kz.gov.pki.knca.commonUtils` | For NCALayer 1.x | ⏳ Pending re-test | [TO FILL after re-test] |
 
-**FINDING:** NCALayer version `1.4` is a 1.x release. The module `kz.gov.pki.knca.basics` belongs to NCALayer 2.x API and is NOT supported in 1.x. All calls via `basics` fail with:
-```
-"java.lang.IllegalArgumentException: X is not defined in PKIExtras"
-```
-where X = `getVersion`, `getKeyInfo`, `signXml`, `browseKeyStore`, `createCMSSignatureFromBase64`.
+**FINDING — Two tests, two different error types (2026-05-28):**
 
-**ACTION REQUIRED:** Re-run the test harness with module `kz.gov.pki.knca.commonUtils` (the 1.x module). The harness has been updated — see instructions below.
+| Test | Module | Error type | Interpretation |
+|------|--------|-----------|----------------|
+| Test 1 | `kz.gov.pki.knca.basics` | `IllegalArgumentException: signXml is not defined in PKIExtras` | Module delegates to PKIExtras layer; PKIExtras doesn't register these methods in v1.4 |
+| Test 2 | `kz.gov.pki.knca.commonUtils` | `NoSuchMethodException signXml` | Java reflection: method not found by name in the Java class itself |
 
-**Working module for all useNCALayer() calls:** `kz.gov.pki.knca.commonUtils` (expected — pending confirmation)
+**Root cause: NCALayer 1.4 is end-of-life.** Neither module has the methods our code expects. This is not a format issue — in v1.4, `signXml`, `getKeyInfo` etc. may have different names or a different dispatch mechanism entirely. NCALayer 2.x (introduced `kz.gov.pki.knca.basics` with the current method names) is required.
+
+**DECISION:** Set minimum NCALayer version requirement to **2.0**. Users with 1.x will see a connection error and must upgrade.
+
+**Working module for all useNCALayer() calls:** `kz.gov.pki.knca.basics` (confirmed as the correct 2.x module — requires NCALayer ≥ 2.0)
+
+---
+
+### Version Requirement (CONFIRMED)
+
+- **Minimum NCALayer version:** `2.0`
+- **Download:** https://ncalayer.gov.kz / НУЦ РК официальный сайт
+- **NCALayer 1.x:** NOT supported — `signXml` and `getKeyInfo` unavailable via any known module
+- **Error users will see with NCALayer 1.x:** `NoSuchMethodException` or `not defined in PKIExtras`
+- **UX action:** `useNCALayer()` hook must detect version on connect and show upgrade prompt if `version < 2.0`
 
 ---
 

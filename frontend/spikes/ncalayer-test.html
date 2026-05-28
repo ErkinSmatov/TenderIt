@@ -251,17 +251,17 @@
       <label>NCALayer Module:</label>
       <select id="module-select" onchange="ACTIVE_MODULE = this.value"
               style="padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px; flex:1; max-width:380px;">
-        <option value="kz.gov.pki.knca.commonUtils" selected>
-          kz.gov.pki.knca.commonUtils — NCALayer 1.x (version 1.4 confirmed)
+        <option value="kz.gov.pki.knca.basics" selected>
+          kz.gov.pki.knca.basics — NCALayer 2.x (REQUIRED: upgrade to ≥ 2.0)
         </option>
-        <option value="kz.gov.pki.knca.basics">
-          kz.gov.pki.knca.basics — NCALayer 2.x
+        <option value="kz.gov.pki.knca.commonUtils">
+          kz.gov.pki.knca.commonUtils — NCALayer 1.x (EOL, not supported)
         </option>
       </select>
     </div>
-    <div style="font-size:11px; color:#856404; background:#fff3cd; padding:6px 10px; border-radius:4px; margin-bottom:8px;">
-      ⚠️ SPIKE-02 finding (2026-05-28): <code>kz.gov.pki.knca.basics</code> fails on NCALayer 1.4 with "not defined in PKIExtras".
-      Use <strong>commonUtils</strong> for NCALayer 1.x.
+    <div style="font-size:11px; color:#0c5460; background:#d1ecf1; padding:6px 10px; border-radius:4px; margin-bottom:8px;">
+      ℹ️ SPIKE-02 (2026-05-28): NCALayer 1.4 is EOL — both modules fail. <strong>Minimum required: NCALayer 2.0.</strong>
+      Download: <a href="https://ncalayer.gov.kz" target="_blank">ncalayer.gov.kz</a>. Version gate fires automatically on connect.
     </div>
     <div class="btn-row">
       <button class="primary" onclick="connect(document.getElementById('url-primary').value)">Connect (13579)</button>
@@ -351,18 +351,39 @@
     ];
 
     // ── Module constants ─────────────────────────────────────────
-    // NCALayer 1.x (version < 2.0) → use kz.gov.pki.knca.commonUtils
-    // NCALayer 2.x (version ≥ 2.0) → use kz.gov.pki.knca.basics
+    // SPIKE-02 FINDING (2026-05-28):
+    //   NCALayer 1.4: BOTH modules fail — version is EOL, not supported.
+    //   NCALayer 2.x: use kz.gov.pki.knca.basics (REQUIRED, minimum version 2.0)
+    //   kz.gov.pki.knca.commonUtils: legacy 1.x module, kept for reference only.
     //
-    // SPIKE-02 FINDING (2026-05-28): Live test with NCALayer 1.4 confirmed that
-    // kz.gov.pki.knca.basics fails with "X is not defined in PKIExtras" for ALL methods.
-    // Active module is now set to commonUtils (1.x API). Toggle via the UI selector.
-    const MODULE_BASICS    = 'kz.gov.pki.knca.basics';
-    const MODULE_LEGACY    = 'kz.gov.pki.knca.commonUtils';
+    // MINIMUM REQUIRED VERSION: NCALayer 2.0
+    // Download: https://ncalayer.gov.kz
+    const MODULE_BASICS    = 'kz.gov.pki.knca.basics';      // ← CORRECT for NCALayer 2.x
+    const MODULE_LEGACY    = 'kz.gov.pki.knca.commonUtils'; // legacy 1.x, not supported
 
-    // Active module — NCALayer 1.4 confirmed → use commonUtils
-    // Change to MODULE_BASICS if testing NCALayer 2.x
-    let ACTIVE_MODULE = MODULE_LEGACY;
+    // Active module — always basics (requires NCALayer ≥ 2.0)
+    let ACTIVE_MODULE = MODULE_BASICS;
+
+    // Version gate: warn if NCALayer < 2.0 (auto-checked on connect via broadcast)
+    function checkVersionGate(versionStr) {
+      if (!versionStr) return;
+      const major = parseInt(versionStr.split('.')[0], 10);
+      if (major < 2) {
+        addLogEntry({
+          event: 'VERSION_WARNING',
+          timestamp: now(),
+          message: `⚠️ NCALayer ${versionStr} detected — MINIMUM REQUIRED VERSION IS 2.0. ` +
+                   `Methods signXml, getKeyInfo are not available in 1.x. ` +
+                   `Download NCALayer 2.x from https://ncalayer.gov.kz and restart.`
+        });
+      } else {
+        addLogEntry({
+          event: 'VERSION_OK',
+          timestamp: now(),
+          message: `✅ NCALayer ${versionStr} — version requirement satisfied (≥ 2.0). Proceed with testing.`
+        });
+      }
+    }
 
     // ── Utility ──────────────────────────────────────────────────
     function now() {
@@ -486,6 +507,10 @@
           timestamp: now(),
           data: parsed
         });
+        // Auto version gate: NCALayer broadcasts version on connect
+        if (parsed && parsed.result && parsed.result.version) {
+          checkVersionGate(parsed.result.version);
+        }
       };
 
       ws.onerror = function (e) {

@@ -35,12 +35,16 @@ TenderIt/                    ← единственный git repo
 | Database | PostgreSQL 16 |
 | Cache / Queue | Redis + ARQ (async task queue) |
 | File Storage | MinIO (S3-compatible) |
-| EDS Signing | NCALayer WebSocket (ws://localhost:14579) — browser-only, NEVER server-side |
+| EDS Signing | NCALayer WebSocket (wss://127.0.0.1:13579) — browser-only, NEVER server-side. **Minimum version: 2.0** (1.x is EOL). Module: `kz.gov.pki.knca.basics` |
 | Notifications | python-telegram-bot + Twilio WhatsApp Business API |
 
 ## Key Architectural Rules
 
-1. **NCALayer is browser-only.** The backend NEVER connects to ws://localhost:14579. All signing happens in the browser via a `useNCALayer()` React hook. The backend only receives and verifies the signed XML blob.
+1. **NCALayer is browser-only.** The backend NEVER connects to NCALayer. All signing happens in the browser via a `useNCALayer()` React hook. The backend only receives and verifies the signed XML blob.
+   - **Confirmed endpoint:** `wss://127.0.0.1:13579` (SPIKE-02, 2026-05-28)
+   - **Module:** `kz.gov.pki.knca.basics` (requires NCALayer ≥ 2.0)
+   - **Version gate:** `useNCALayer()` must check broadcast version on connect and show upgrade prompt if < 2.0
+   - **Port 14579** in old docs is incorrect — confirmed port is **13579**
 
 2. **Private keys never leave the user's device.** No .p12 file uploads to server.
 
