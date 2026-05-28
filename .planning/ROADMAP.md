@@ -109,7 +109,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Spikes & Foundation | 0/0 | Not started | - |
+| 1. Spikes & Foundation | 1/5 | In Progress|  |
 | 2. Auth & Company Profile | 0/0 | Not started | - |
 | 3. Tender Data Pipeline | 0/0 | Not started | - |
 | 4. Document Vault | 0/0 | Not started | - |
