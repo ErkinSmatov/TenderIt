@@ -1,0 +1,68 @@
+{
+  "_comment": "SAMPLE ANONYMIZED PAYLOAD — all PII replaced with placeholders. Field structure based on goszakup v3 API public documentation; confirm each field from live capture (SPIKE-03 Task 1). Fields marked with TODO require live capture to confirm type/name/nesting.",
+  "_status": "TEMPLATE — awaiting live capture",
+  "_anonymization": {
+    "BIN": "replaced_with_123456789012",
+    "IIN": "replaced_with_000000000000",
+    "company_name": "replaced_with_ТОО Тест Компания",
+    "director_name": "replaced_with_Иванов Иван Иванович",
+    "auth_tokens": "replaced_with_REDACTED",
+    "application_number": "replaced_with_АП-XXXX-XXXXXXXX",
+    "real_phone": "replaced_with_+70000000000",
+    "real_email": "replaced_with_test@example.kz"
+  },
+  "data": {
+    "trdBuyId": 99999999,
+    "announceNumber": "23062400076",
+    "supplierId": 88888888,
+    "supplierBin": "123456789012",
+    "supplierIin": "000000000000",
+    "applicationNumber": "",
+    "status": "DRAFT",
+    "currency": "KZT",
+    "lots": [
+      {
+        "lotId": 1,
+        "lotNumber": "1",
+        "quantity": 10,
+        "unitPrice": 45000.00,
+        "totalPrice": 450000.00,
+        "measureUnit": "шт",
+        "deliveryPlace": "г. Алматы, ул. Примерная, 1",
+        "deliveryTerm": 30,
+        "paymentTerm": "по факту поставки"
+      }
+    ],
+    "price": 450000.00,
+    "priceWithVat": 450000.00,
+    "vatPercent": 0,
+    "supplierName": "ТОО Тест Компания",
+    "supplierDirector": "Иванов Иван Иванович",
+    "supplierAddress": "г. Алматы, ул. Абая, 150",
+    "supplierPhone": "+70000000000",
+    "supplierEmail": "test@example.kz",
+    "applicationDate": "2024-01-15T10:30:00+06:00",
+    "documents": [
+      {
+        "docTypeId": 1,
+        "docTypeName": "Свидетельство о регистрации",
+        "fileName": "registration_certificate.pdf",
+        "fileId": "00000000-0000-0000-0000-000000000001",
+        "fileSize": 524288,
+        "uploadedAt": "2024-01-15T10:00:00+06:00"
+      }
+    ],
+    "signedXml": "REDACTED — base64-encoded CMS-signed XML returned by NCALayer. Replace this field with the actual value from NCALayer signXml response.",
+    "xmlPayload": "REDACTED — see sample-submission.xml for the unsigned XML structure"
+  },
+  "_TODO_confirm_from_capture": [
+    "Exact top-level key: is it 'data' or flat structure?",
+    "Is signedXml base64-encoded or raw XML string?",
+    "Is xmlPayload sent as part of this payload or retrieved in a separate GET call?",
+    "Lot structure: is 'lots' an array at root level or nested under 'data'?",
+    "Document attachment: is this payload used OR is there a separate document-link endpoint?",
+    "Are vatPercent and priceWithVat required even for non-VAT suppliers (null vs 0)?",
+    "applicationDate timezone: +06:00 (Almaty) or UTC?",
+    "Status codes: string ('DRAFT', 'SUBMITTED') or integer enum (1, 2, 3)?"
+  ]
+}
