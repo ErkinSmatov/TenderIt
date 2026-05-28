@@ -1,0 +1,9 @@
+Alembic async migration environment for TenderIt backend.
+
+Run migrations:
+  cd backend && alembic upgrade head
+
+Create a new migration:
+  cd backend && alembic revision --autogenerate -m "describe change"
+
+DB URL is injected from app.config.settings — do NOT set sqlalchemy.url in alembic.ini.

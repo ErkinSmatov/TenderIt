@@ -1,0 +1,6 @@
+# Development overrides — not committed to production
+# Adds volume mounts for live reload when developing locally
+services:
+  postgres:
+    ports:
+      - "5432:5432"

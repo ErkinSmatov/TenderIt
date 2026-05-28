@@ -1,16 +1,37 @@
-# dependencies
-frontend/node_modules/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 backend/.venv/
-backend/__pycache__/
 
-# env files
-.env
-.env.local
-.env.*.local
-
-# build outputs
+# Node.js
+node_modules/
 frontend/.next/
 frontend/out/
 
-# OS
+# Env files — never commit real secrets
+.env
+.env.local
+.env.*.local
+# .env.example is intentionally committed
+
+# IDE
 .DS_Store
+.idea/
+.vscode/
+# Uncomment if project VS Code settings are useful:
+# !.vscode/settings.json
+
+# HAR captures — may contain session cookies
+*.har
+backend/spikes/findings/raw-captures/
+
+# Alembic migrations are version controlled — do NOT gitignore versions/
