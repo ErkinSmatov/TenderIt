@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NCALayer WebSocket Test Harness — SPIKE-02</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      padding: 16px;
+    }
+
+    /* Warning banner */
+    .warning-banner {
+      background: #fff3cd;
+      border: 2px solid #f0ad4e;
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+    }
+    .warning-banner strong { color: #856404; font-size: 13px; text-transform: uppercase; }
+    .warning-banner p { margin-top: 6px; color: #664d03; line-height: 1.5; }
+    .warning-banner code {
+      background: #ffeeba;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    /* Certificate trust instructions */
+    .cert-trust {
+      background: #e8f4fd;
+      border: 1px solid #90c4e8;
+      border-radius: 6px;
+      padding: 12px 18px;
+      margin-bottom: 16px;
+    }
+    .cert-trust strong { color: #0c5460; }
+    .cert-trust p { color: #0c5460; margin-top: 4px; line-height: 1.5; }
+
+    /* Sections */
+    .section {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .section h2 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #555;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+
+    /* Connection panel */
+    .connection-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .connection-row label {
+      font-size: 12px;
+      color: #666;
+      white-space: nowrap;
+      min-width: 100px;
+    }
+    .connection-row input[type="text"] {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: "Courier New", monospace;
+      font-size: 13px;
+    }
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #dc3545;
+      display: inline-block;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .status-dot.connected { background: #28a745; }
+    #status-text {
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    button {
+      padding: 7px 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      background: white;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover:not(:disabled) { background: #f0f0f0; border-color: #999; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.primary {
+      background: #0d6efd;
+      border-color: #0d6efd;
+      color: white;
+      font-weight: 600;
+    }
+    button.primary:hover:not(:disabled) { background: #0b5ed7; border-color: #0a58ca; }
+    button.danger {
+      background: #dc3545;
+      border-color: #dc3545;
+      color: white;
+    }
+    button.danger:hover:not(:disabled) { background: #bb2d3b; }
+    button.success {
+      background: #198754;
+      border-color: #198754;
+      color: white;
+    }
+    button.success:hover:not(:disabled) { background: #157347; }
+
+    /* Action buttons */
+    .action-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .sign-panel {
+      margin-top: 12px;
+      padding: 12px;
+      background: #f9f9f9;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      display: none;
+    }
+    .sign-panel.visible { display: block; }
+    .sign-panel label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    .sign-panel textarea {
+      width: 100%;
+      height: 80px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
+
+    /* Log panel */
+    .log-controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    #log-output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 12px;
+      border-radius: 4px;
+      height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    /* Color coding for log entries */
+    .log-SENT { color: #6cb6ff; }
+    .log-RECEIVED { color: #4ec994; }
+    .log-ERROR { color: #f47067; }
+    .log-CONNECTED { color: #aaa; }
+    .log-DISCONNECTED { color: #aaa; }
+    .log-INFO { color: #d2a679; }
+
+    /* Hint text */
+    .hint { font-size: 11px; color: #999; margin-top: 4px; font-style: italic; }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       WARNING BANNER
+  ============================================================ -->
+  <div class="warning-banner">
+    <strong>PORT VERIFICATION REQUIRED — Read Before Testing</strong>
+    <p>
+      Before connecting, confirm the actual NCALayer listening port by running:<br>
+      &bull; <code>macOS/Linux:</code> <code>netstat -an | grep LISTEN | grep -E "13579|14579"</code><br>
+      &bull; <code>Windows (PowerShell):</code> <code>netstat -ano | findstr "13579 14579"</code><br><br>
+      The URL inputs below default to <strong>wss://127.0.0.1:13579</strong> (community-confirmed as of NCALayer 2.x)
+      but your installation may use <strong>14579</strong>. If neither port shows in netstat, run
+      <code>netstat -an | grep LISTEN</code> (all ports) and locate the NCALayer process.
+      <strong>Test BOTH ports if unsure.</strong>
+    </p>
+  </div>
+
+  <!-- ============================================================
+       CERTIFICATE TRUST INSTRUCTIONS
+  ============================================================ -->
+  <div class="cert-trust">
+    <strong>Self-Signed Certificate Trust (required for wss://)</strong>
+    <p>
+      If the wss:// connection fails immediately with an error, NCALayer uses a self-signed certificate
+      that the browser does not trust yet. To trust it:<br>
+      1. Open <strong>https://127.0.0.1:13579</strong> (or your confirmed port) in the same browser.<br>
+      2. Click <strong>Advanced</strong> &rarr; <strong>Proceed to 127.0.0.1 (unsafe)</strong>.<br>
+      3. Close that tab and retry the WebSocket connection below.<br>
+      (This must be done once per browser profile per NCALayer installation.)
+    </p>
+  </div>
+
+  <!-- ============================================================
+       1. CONNECTION PANEL
+  ============================================================ -->
+  <div class="section">
+    <h2>1. Connection</h2>
+
+    <div class="connection-row">
+      <label>Primary URL (13579):</label>
+      <input type="text" id="url-primary" value="wss://127.0.0.1:13579">
+    </div>
+    <div class="connection-row">
+      <label>Fallback URL (14579):</label>
+      <input type="text" id="url-fallback" value="ws://127.0.0.1:14579">
+    </div>
+
+    <div class="btn-row">
+      <button class="primary" onclick="connect(document.getElementById('url-primary').value)">Connect (13579)</button>
+      <button onclick="connect(document.getElementById('url-fallback').value)" style="margin-left:0;">Connect (14579 fallback)</button>
+      <button class="danger" onclick="disconnect()" id="btn-disconnect" disabled>Disconnect</button>
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Disconnected</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       2. ACTION BUTTONS
+  ============================================================ -->
+  <div class="section">
+    <h2>2. Actions (enabled after connection)</h2>
+
+    <div class="action-group" id="action-buttons">
+      <!-- Get Version -->
+      <button onclick="sendGetVersion()" id="btn-version" disabled>Get Version</button>
+
+      <!-- Get Key Info -->
+      <button onclick="sendGetKeyInfo()" id="btn-keyinfo" disabled>Get Key Info</button>
+
+      <!-- Browse Key Store -->
+      <button onclick="sendBrowseKeyStore()" id="btn-browse" disabled>Browse Key Store</button>
+
+      <!-- Sign XML toggle -->
+      <button onclick="togglePanel('sign-xml-panel')" id="btn-signxml" disabled>Sign XML &darr;</button>
+
+      <!-- Sign CMS toggle -->
+      <button onclick="togglePanel('sign-cms-panel')" id="btn-signcms" disabled>Sign CMS &darr;</button>
+    </div>
+
+    <!-- Sign XML panel -->
+    <div class="sign-panel" id="sign-xml-panel">
+      <label>XML to sign (will be base64-encoded before sending):</label>
+      <textarea id="xml-input">&lt;tender&gt;&lt;id&gt;TEST-001&lt;/id&gt;&lt;amount&gt;100000&lt;/amount&gt;&lt;/tender&gt;</textarea>
+      <div class="hint">
+        Note: keyType "SIGNATURE" is expected for tender documents (not "AUTH" which is for TLS only).
+        NCALayer will display a PIN dialog — enter your certificate PIN there.
+      </div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="success" onclick="sendSignXml()">Send Sign Request</button>
+      </div>
+    </div>
+
+    <!-- Sign CMS panel -->
+    <div class="sign-panel" id="sign-cms-panel">
+      <label>Data to sign (plain text — will be base64-encoded):</label>
+      <textarea id="cms-input">test data for CMS signature</textarea>
+      <div class="hint">
+        Creates a CMS (PKCS#7) signature from base64-encoded data. attach=true means the data is embedded in the signature.
+      </div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="success" onclick="sendSignCms()">Send CMS Sign Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       3. LOG PANEL
+  ============================================================ -->
+  <div class="section">
+    <h2>3. Message Log</h2>
+
+    <div class="log-controls">
+      <button onclick="clearLog()">Clear Log</button>
+      <button onclick="copyLog()">Copy Log (text)</button>
+      <button onclick="copyLogJson()" class="primary">Copy Full Log as JSON</button>
+    </div>
+
+    <div id="log-output">Waiting for connection...</div>
+  </div>
+
+  <!-- ============================================================
+       JAVASCRIPT
+  ============================================================ -->
+  <script>
+    // ── State ────────────────────────────────────────────────────
+    let ws = null;
+    const logEntries = [];
+
+    // Action buttons that should be enabled/disabled based on connection
+    const ACTION_BTN_IDS = [
+      'btn-version', 'btn-keyinfo', 'btn-browse',
+      'btn-signxml', 'btn-signcms', 'btn-disconnect'
+    ];
+
+    // ── Module constants ─────────────────────────────────────────
+    // IMPORTANT: kz.gov.pki.knca.basics is the CURRENT module (NCALayer 2.x).
+    // kz.gov.pki.knca.commonUtils is DEPRECATED/legacy. If basics fails with
+    // "method not found", try commonUtils as a fallback.
+    const MODULE_BASICS    = 'kz.gov.pki.knca.basics';
+    const MODULE_LEGACY    = 'kz.gov.pki.knca.commonUtils';  // deprecated — fallback only
+
+    // ── Utility ──────────────────────────────────────────────────
+    function now() {
+      return new Date().toISOString();
+    }
+
+    function safeJsonParse(str) {
+      try { return JSON.parse(str); }
+      catch (e) { return { raw: str }; }
+    }
+
+    // base64-encode a UTF-8 string safely (handles non-ASCII chars)
+    function toBase64(str) {
+      return btoa(unescape(encodeURIComponent(str)));
+    }
+
+    // ── Logging ──────────────────────────────────────────────────
+    function addLogEntry(entry) {
+      logEntries.unshift(entry);  // most recent at top
+      renderLog();
+    }
+
+    function renderLog() {
+      const el = document.getElementById('log-output');
+      if (logEntries.length === 0) {
+        el.innerHTML = 'No messages yet.';
+        return;
+      }
+      el.innerHTML = logEntries.map(entry => {
+        const eventType = entry.event || 'INFO';
+        const cssClass = 'log-' + eventType;
+        const json = JSON.stringify(entry, null, 2);
+        return '<span class="' + cssClass + '">' + escapeHtml(json) + '</span>\n---';
+      }).join('\n');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function clearLog() {
+      logEntries.length = 0;
+      document.getElementById('log-output').innerHTML = 'Log cleared.';
+    }
+
+    function copyLog() {
+      const text = logEntries.map(e => JSON.stringify(e, null, 2)).join('\n---\n');
+      navigator.clipboard.writeText(text)
+        .then(() => alert('Log copied to clipboard (text format).'))
+        .catch(() => alert('Clipboard write failed. Select and copy manually.'));
+    }
+
+    // "Copy Full Log as JSON" — copies the raw array as JSON
+    // Save this output as: frontend/spikes/findings/spike-02-session-log.json
+    function copyLogJson() {
+      const json = JSON.stringify(logEntries, null, 2);
+      navigator.clipboard.writeText(json)
+        .then(() => alert('Full log array copied as JSON.\n\nSave as: frontend/spikes/findings/spike-02-session-log.json'))
+        .catch(() => {
+          // Fallback: open a new window with the JSON for manual copy
+          const w = window.open('', '_blank');
+          w.document.write('<pre>' + escapeHtml(json) + '</pre>');
+        });
+    }
+
+    // ── UI state helpers ─────────────────────────────────────────
+    function setConnected(isConnected) {
+      document.getElementById('status-dot').className = 'status-dot' + (isConnected ? ' connected' : '');
+      document.getElementById('status-text').textContent = isConnected ? 'Connected' : 'Disconnected';
+      ACTION_BTN_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !isConnected;
+      });
+      if (!isConnected) {
+        // Hide sign panels on disconnect
+        ['sign-xml-panel', 'sign-cms-panel'].forEach(id => {
+          document.getElementById(id).classList.remove('visible');
+        });
+      }
+    }
+
+    function togglePanel(panelId) {
+      const el = document.getElementById(panelId);
+      el.classList.toggle('visible');
+    }
+
+    // ── WebSocket lifecycle ──────────────────────────────────────
+    function connect(url) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        addLogEntry({ event: 'INFO', timestamp: now(), message: 'Already connected. Disconnect first.' });
+        return;
+      }
+
+      addLogEntry({ event: 'INFO', timestamp: now(), message: 'Connecting to ' + url + '...' });
+
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        addLogEntry({
+          event: 'ERROR',
+          timestamp: now(),
+          message: 'Failed to create WebSocket: ' + e.message
+        });
+        return;
+      }
+
+      ws.onopen = function () {
+        addLogEntry({
+          event: 'CONNECTED',
+          timestamp: now(),
+          url: url,
+          message: 'WebSocket connection established. NCALayer is reachable.'
+        });
+        setConnected(true);
+      };
+
+      ws.onmessage = function (e) {
+        const parsed = safeJsonParse(e.data);
+        addLogEntry({
+          event: 'RECEIVED',
+          timestamp: now(),
+          data: parsed
+        });
+      };
+
+      ws.onerror = function (e) {
+        addLogEntry({
+          event: 'ERROR',
+          timestamp: now(),
+          message: 'WebSocket error. Check: (1) NCALayer is running (tray icon visible), ' +
+                   '(2) URL/port is correct — run netstat to confirm the actual port, ' +
+                   '(3) Browser trusts the self-signed certificate: open https://127.0.0.1:13579, ' +
+                   'click Advanced > Proceed, then retry. ' +
+                   '(4) If using wss:// fails, try ws:// with port 14579.',
+          url: url
+        });
+      };
+
+      ws.onclose = function (e) {
+        addLogEntry({
+          event: 'DISCONNECTED',
+          timestamp: now(),
+          code: e.code,
+          reason: e.reason || '(no reason provided)',
+          wasClean: e.wasClean
+        });
+        setConnected(false);
+        ws = null;
+      };
+    }
+
+    function disconnect() {
+      if (ws) {
+        ws.close(1000, 'Manual disconnect from test harness');
+      }
+    }
+
+    // ── Message sending helpers ───────────────────────────────────
+    function sendMessage(msg) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        addLogEntry({ event: 'ERROR', timestamp: now(), message: 'Not connected. Click Connect first.' });
+        return;
+      }
+      addLogEntry({ event: 'SENT', timestamp: now(), data: msg });
+      ws.send(JSON.stringify(msg));
+    }
+
+    // ── Get Version ───────────────────────────────────────────────
+    // NOTE TO SPIKE EXECUTOR:
+    // If this call returns an error like "method not found" or "module not found",
+    // try the LEGACY module: replace MODULE_BASICS with MODULE_LEGACY below and re-test.
+    // Record which module version works in SPIKE-02-FINDINGS.md.
+    function sendGetVersion() {
+      sendMessage({
+        module: MODULE_BASICS,
+        method: 'getVersion'
+        // Note: 'args' is intentionally omitted for getVersion — some versions require no args.
+        // If you get "invalid args", try adding: args: {}
+      });
+      /*
+       * FALLBACK (if basics module fails — try manually in browser console):
+       * ws.send(JSON.stringify({ module: 'kz.gov.pki.knca.commonUtils', method: 'getVersion', args: {} }))
+       */
+    }
+
+    // ── Get Key Info ──────────────────────────────────────────────
+    // NOTE TO SPIKE EXECUTOR:
+    // tokenType options to try if PKCS12 fails:
+    //   "PKCS11"         — for hardware tokens (USB eToken)
+    //   "AKKZIDCardStore" — for Kazakhstani ID cards
+    // Record the full response JSON verbatim in SPIKE-02-FINDINGS.md, including
+    // all certificate fields: subject, keyType, notBefore, notAfter, issuer, certSN.
+    function sendGetKeyInfo() {
+      sendMessage({
+        module: MODULE_BASICS,
+        method: 'getKeyInfo',
+        args: {
+          tokenType: 'PKCS12'  // .p12 file (most common for ЭЦП in Kazakhstan)
+        }
+      });
+      /*
+       * FALLBACK (commonUtils legacy format):
+       * ws.send(JSON.stringify({
+       *   module: 'kz.gov.pki.knca.commonUtils',
+       *   method: 'getKeyInfo',
+       *   args: { storageName: 'PKCS12' }
+       * }))
+       */
+    }
+
+    // ── Browse Key Store ──────────────────────────────────────────
+    function sendBrowseKeyStore() {
+      sendMessage({
+        module: MODULE_BASICS,
+        method: 'browseKeyStore',
+        args: {
+          tokenType: 'PKCS12',
+          password: ''  // NCALayer will prompt for PIN if empty
+        }
+      });
+    }
+
+    // ── Sign XML ──────────────────────────────────────────────────
+    // NOTE TO SPIKE EXECUTOR:
+    // keyType options:
+    //   "SIGNATURE" — for signing documents (expected for tender submissions)
+    //   "AUTH"      — for TLS/authentication only — goszakup portal WILL REJECT this for document signing
+    // xmlToSign is base64-encoded UTF-8 string of the XML payload.
+    // tbsElementXPath: XPath to the element to sign (empty string = sign whole document).
+    // signatureXPath: XPath where the signature will be inserted (empty string = default).
+    // NCALayer will display a PIN dialog — the user enters the certificate PIN there (not in this page).
+    function sendSignXml() {
+      const xmlRaw = document.getElementById('xml-input').value;
+      if (!xmlRaw.trim()) {
+        alert('XML input is empty.');
+        return;
+      }
+      const xmlBase64 = toBase64(xmlRaw);
+
+      sendMessage({
+        module: MODULE_BASICS,
+        method: 'signXml',
+        args: {
+          tokenType: 'PKCS12',
+          keyType: 'SIGNATURE',       // SIGNATURE = document signing cert; AUTH = authentication cert
+          xmlToSign: xmlBase64,        // base64-encoded XML string
+          tbsElementXPath: '',         // XPath to element to sign; '' = whole document
+          signatureXPath: ''           // XPath for signature placement; '' = default
+        }
+      });
+      /*
+       * RECORDING NOTE:
+       * The response will contain the signed XML (usually base64-encoded or as XML text).
+       * Copy the full response JSON verbatim into SPIKE-02-FINDINGS.md under "signXml response".
+       * The signed output structure (CMS vs XMLDSig) must be confirmed here.
+       *
+       * FALLBACK (commonUtils legacy format):
+       * ws.send(JSON.stringify({
+       *   module: 'kz.gov.pki.knca.commonUtils',
+       *   method: 'signXml',
+       *   args: {
+       *     storageName: 'PKCS12',
+       *     keyType: 'SIGNATURE',
+       *     xmlToSign: xmlBase64,
+       *     tbsElementXPath: '',
+       *     signatureXPath: ''
+       *   }
+       * }))
+       */
+    }
+
+    // ── Sign CMS ──────────────────────────────────────────────────
+    // Creates a CMS (PKCS#7) signature from base64-encoded data.
+    // attach=true embeds the original data in the signature envelope.
+    // attach=false creates a detached signature.
+    function sendSignCms() {
+      const rawData = document.getElementById('cms-input').value;
+      if (!rawData.trim()) {
+        alert('CMS input is empty.');
+        return;
+      }
+      const dataBase64 = toBase64(rawData);
+
+      sendMessage({
+        module: MODULE_BASICS,
+        method: 'createCMSSignatureFromBase64',
+        args: {
+          tokenType: 'PKCS12',
+          keyType: 'SIGNATURE',
+          base64ToSign: dataBase64,
+          attach: true  // true = attached CMS (data embedded); false = detached signature
+        }
+      });
+    }
+
+    // ── Initial log message ───────────────────────────────────────
+    addLogEntry({
+      event: 'INFO',
+      timestamp: now(),
+      message: 'Test harness loaded. Follow these steps: ' +
+               '(1) Run netstat to confirm NCALayer port. ' +
+               '(2) Trust the self-signed certificate if using wss://. ' +
+               '(3) Click Connect. ' +
+               '(4) Run Get Version, Get Key Info, Sign XML. ' +
+               '(5) Use "Copy Full Log as JSON" to capture all messages.'
+    });
+  </script>
+
+  <!--
+    SPIKE-02 TEST HARNESS — NCALayer WebSocket Protocol Verification
+    ================================================================
+    File: frontend/spikes/ncalayer-test.html
+    Purpose: Standalone browser-based test for NCALayer connectivity and signing
+    Architecture note: NCALayer is BROWSER-ONLY per CLAUDE.md.
+      - This file runs in the browser on the user's local machine
+      - The backend NEVER connects to ws://localhost:14579 or wss://127.0.0.1:13579
+      - Private keys NEVER leave the user's device (NCALayer handles all crypto)
+      - The backend only receives the signed XML blob produced by this flow
+
+    Security notes (STRIDE T-03-01 through T-03-04):
+      - Use a test/development certificate for spiking, not the production company key
+      - The PIN is entered in NCALayer's own dialog — this page never touches the PIN
+      - The test XML (<tender><id>TEST-001</id>...) is not a valid goszakup payload
+        and will not constitute a binding legal submission even if signed
+      - This file is for local investigation only — it is never deployed or served
+  -->
+</body>
+</html>
