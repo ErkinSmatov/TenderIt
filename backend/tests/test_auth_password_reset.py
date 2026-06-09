@@ -17,8 +17,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import MagicMock
 
 from app.main import app
 from app.models.user import User
@@ -57,18 +56,33 @@ async def reset_client(fake_redis):
 
 
 @pytest_asyncio.fixture
-async def registered_user(db_session: AsyncSession):
-    """Create a real user row in the test DB; yield (email, password, user_id)."""
+async def registered_user():
+    """Create and commit a real user row; clean up after the test."""
+    from app.db import AsyncSessionLocal
+
     email = f"reset_test_{uuid.uuid4().hex[:8]}@example.com"
     password = "Secure1234!"
-    user = User(
-        email=email,
-        hashed_password=hash_password(password),
-        is_active=True,
-    )
-    db_session.add(user)
-    await db_session.flush()
-    yield email, password, user.id
+    user_id = None
+
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            user = User(
+                email=email,
+                hashed_password=hash_password(password),
+                is_active=True,
+            )
+            session.add(user)
+        await session.refresh(user)
+        user_id = user.id
+
+    yield email, password, user_id
+
+    # Cleanup: delete the user after the test
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            u = await session.get(User, user_id)
+            if u:
+                await session.delete(u)
 
 
 # ---------------------------------------------------------------------------
@@ -115,9 +129,12 @@ async def test_forgot_password_unknown_email_returns_202_no_token_created(
 
 @pytest.mark.asyncio
 async def test_reset_password_valid_token_updates_hashed_password_and_returns_204(
-    reset_client, registered_user, db_session: AsyncSession
+    reset_client, registered_user
 ):
     """A valid reset token causes password update and returns 204."""
+    from app.db import AsyncSessionLocal
+    from app.services.auth_service import verify_password
+
     client, fake_redis = reset_client
     email, old_password, user_id = registered_user
 
@@ -136,14 +153,13 @@ async def test_reset_password_valid_token_updates_hashed_password_and_returns_20
     remaining = await fake_redis.get(f"reset:{token}")
     assert remaining is None, "Reset token should be deleted after use"
 
-    # Password should be updated in DB
-    result = await db_session.execute(select(User).where(User.id == user_id))
-    db_user = result.scalar_one()
-    from app.services.auth_service import verify_password
-
-    assert verify_password("NewSecure99!", db_user.hashed_password), (
-        "hashed_password was not updated"
-    )
+    # Password should be updated in DB — use a fresh session to see committed data
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        db_user = result.scalar_one()
+        assert verify_password("NewSecure99!", db_user.hashed_password), (
+            "hashed_password was not updated"
+        )
 
 
 @pytest.mark.asyncio
