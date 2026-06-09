@@ -19,6 +19,4 @@ class User(Base):
     is_verified: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
-    company_profile: Mapped[Optional["CompanyProfile"]] = relationship(  # noqa: F821
-        back_populates="user", lazy="selectin", uselist=False
-    )
+    company_profile: Mapped[Optional["CompanyProfile"]] = relationship("CompanyProfile", back_populates="user", lazy="selectin", uselist=False)

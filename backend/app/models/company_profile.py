@@ -21,6 +21,4 @@ class CompanyProfile(Base):
         server_default=func.now(), onupdate=func.now()
     )
 
-    user: Mapped["User"] = relationship(  # noqa: F821
-        back_populates="company_profile", lazy="selectin"
-    )
+    user: Mapped["User"] = relationship("User", back_populates="company_profile", lazy="selectin")
