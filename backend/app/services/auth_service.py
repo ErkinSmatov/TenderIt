@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -24,7 +25,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(user_id: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode(
-        {"sub": str(user_id), "exp": expire},
+        {"sub": str(user_id), "exp": expire, "jti": secrets.token_hex(16)},
         settings.jwt_secret,
         algorithm=ALGORITHM,
     )
@@ -33,7 +34,7 @@ def create_access_token(user_id: int) -> str:
 def create_refresh_token(user_id: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     return jwt.encode(
-        {"sub": str(user_id), "exp": expire, "type": "refresh"},
+        {"sub": str(user_id), "exp": expire, "type": "refresh", "jti": secrets.token_hex(16)},
         settings.jwt_secret,
         algorithm=ALGORITHM,
     )
@@ -48,6 +49,7 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str) 
         secure=secure,
         samesite="lax",
         max_age=900,
+        path="/",
     )
     response.set_cookie(
         "refresh_token",
@@ -56,4 +58,11 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str) 
         secure=secure,
         samesite="lax",
         max_age=604800,
+        path="/",
     )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    """Delete both auth cookies.  path='/' must match the path used on set."""
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")

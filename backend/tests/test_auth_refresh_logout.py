@@ -16,7 +16,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from app.config import settings
+from app.config import settings  # noqa: F401 — used for jwt_secret in crafted tokens
 from app.main import app
 from app.services.redis_service import get_redis
 
@@ -37,18 +37,18 @@ def unique_email(prefix: str = "user") -> str:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="session")
-def fake_redis_instance():
-    """A single FakeRedis instance reused across the test session."""
-    return fakeredis.aioredis.FakeRedis(decode_responses=True)
+@pytest_asyncio.fixture
+async def refresh_client():
+    """HTTP client with a fresh FakeRedis injected per test.
 
-
-@pytest_asyncio.fixture(scope="session")
-async def refresh_client(fake_redis_instance):
-    """HTTP client with FakeRedis injected as the get_redis dependency."""
+    Function-scoped so each test gets its own isolated Redis state AND a fresh
+    asyncio event loop is used (session-scoped FakeRedis causes 'bound to
+    different event loop' errors across pytest-asyncio per-test loops).
+    """
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
     async def _override_get_redis():
-        yield fake_redis_instance
+        yield fake_redis
 
     app.dependency_overrides[get_redis] = _override_get_redis
     async with AsyncClient(
@@ -56,6 +56,7 @@ async def refresh_client(fake_redis_instance):
     ) as ac:
         yield ac
     app.dependency_overrides.pop(get_redis, None)
+    await fake_redis.aclose()
 
 
 async def _register_and_login(client, email: str) -> dict:
