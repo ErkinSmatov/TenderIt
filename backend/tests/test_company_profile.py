@@ -8,9 +8,13 @@ Test coverage:
   5. put_profile_invalid_bin_checksum_returns_422
   6. put_profile_invalid_bin_position5_returns_422
   7. put_profile_updates_existing_row
+
+Redis is mocked (patch store_refresh_token) so tests run without a live Redis instance —
+same approach used in test_auth_register_login.py.
 """
 
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -28,7 +32,7 @@ def compute_valid_bin(prefix: str = "190540") -> str:
 
     prefix must be 6 digits where position 5 (index 4) is in {4,5,6}.
     """
-    base = (prefix + "00001").ljust(11, "0")[:11]
+    base = (prefix + "000010")[:11]
     digits = [int(d) for d in base]
 
     weights1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
@@ -48,15 +52,19 @@ VALID_BIN = compute_valid_bin()
 
 @pytest_asyncio.fixture(scope="module")
 async def authed_client():
-    """HTTP client pre-authenticated via register — module-scoped to share cookies."""
+    """HTTP client pre-authenticated via register — module-scoped to share cookies.
+
+    Redis is mocked so no live Redis is required.
+    """
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         email = f"companytest_{uuid.uuid4().hex[:8]}@example.com"
-        resp = await ac.post(
-            "/api/auth/register",
-            json={"email": email, "password": "SecurePass123"},
-        )
+        with patch("app.routers.auth.store_refresh_token", new=AsyncMock()):
+            resp = await ac.post(
+                "/api/auth/register",
+                json={"email": email, "password": "SecurePass123"},
+            )
         assert resp.status_code == 201, f"Register failed: {resp.text}"
         yield ac
 
@@ -108,9 +116,11 @@ async def test_put_profile_invalid_bin_short_returns_422(authed_client):
 
 @pytest.mark.asyncio
 async def test_put_profile_invalid_bin_checksum_returns_422(authed_client):
-    # Position 5 is '4' (valid entity type) but check digit is deliberately wrong
-    # Take VALID_BIN and flip the last digit
-    bad_bin = VALID_BIN[:11] + str((int(VALID_BIN[11]) + 1) % 10)
+    # Position 5 is '4' (valid entity type) but check digit is deliberately wrong.
+    # Take VALID_BIN and flip the last digit by +1 (mod 10).
+    last = int(VALID_BIN[11])
+    bad_check = (last + 1) % 10
+    bad_bin = VALID_BIN[:11] + str(bad_check)
     resp = await authed_client.put(
         "/api/company/profile",
         json={"bin": bad_bin, "company_name": "X", "legal_address": "Y"},
@@ -120,8 +130,10 @@ async def test_put_profile_invalid_bin_checksum_returns_422(authed_client):
 
 @pytest.mark.asyncio
 async def test_put_profile_invalid_bin_position5_returns_422(authed_client):
-    # Position 5 is '1' — this looks like an IIN (individual), not a legal entity BIN
-    bad_bin = "190140000012"  # index 4 = '1', will fail position-5 check
+    # Position 5 (index 4) is '1' — this looks like an IIN (individual), not a legal entity BIN.
+    # We construct a 12-digit string with a '1' at index 4 so it passes the length check
+    # but fails the position-5 guard in validate_bin.
+    bad_bin = "190140000012"  # index 4 = '1'
     resp = await authed_client.put(
         "/api/company/profile",
         json={"bin": bad_bin, "company_name": "X", "legal_address": "Y"},
@@ -131,7 +143,7 @@ async def test_put_profile_invalid_bin_position5_returns_422(authed_client):
 
 @pytest.mark.asyncio
 async def test_put_profile_updates_existing_row(authed_client):
-    """Calling PUT twice must leave exactly one DB row with the latest values."""
+    """Calling PUT twice must result in a single DB row with the latest values."""
     payload1 = {
         "bin": VALID_BIN,
         "company_name": "Первое Название",
@@ -152,7 +164,7 @@ async def test_put_profile_updates_existing_row(authed_client):
     assert body["company_name"] == "Второе Название"
     assert body["legal_address"] == "Адрес 2"
 
-    # Verify no duplicate row: GET returns the latest values
+    # Verify GET returns the latest values (no duplicate row)
     get_resp = await authed_client.get("/api/company/profile")
     assert get_resp.status_code == 200
     get_body = get_resp.json()
