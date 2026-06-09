@@ -46,11 +46,11 @@
   3. User can reset a forgotten password via an emailed link and set a new password successfully
   4. User can fill in and save company profile fields (BIN, company name, legal address) and edit them at any later time
 **Plans**: 5 plans
-- [ ] 02-01-PLAN.md — Wave 0 foundation: settings, deps, models, migration, BIN validator, test scaffolding
-- [ ] 02-02-PLAN.md — Wave 1 vertical slice: registration + login + middleware + dashboard placeholder
-- [ ] 02-03-PLAN.md — Wave 2: refresh token rotation + logout
-- [ ] 02-04-PLAN.md — Wave 3: password reset (forgot + reset endpoints + pages)
-- [ ] 02-05-PLAN.md — Wave 4: company profile GET/PUT + profile page + form
+- [x] 02-01-PLAN.md — Wave 0 foundation: settings, deps, models, migration, BIN validator, test scaffolding
+- [x] 02-02-PLAN.md — Wave 1 vertical slice: registration + login + middleware + dashboard placeholder
+- [x] 02-03-PLAN.md — Wave 2: refresh token rotation + logout
+- [x] 02-04-PLAN.md — Wave 3: password reset (forgot + reset endpoints + pages)
+- [x] 02-05-PLAN.md — Wave 4: company profile GET/PUT + profile page + form
 **UI hint**: yes
 
 ### Phase 3: Tender Lookup
