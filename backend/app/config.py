@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     minio_secret_key: str = "minioadmin_dev"
     debug: bool = True
     secret_key: str = "change-me-in-production"
+    # Phase 2: JWT + email + frontend settings
+    jwt_secret: str = "change-me-in-production"
+    resend_api_key: str = ""
+    frontend_url: str = "http://localhost:3000"
 
 
 settings = Settings()
