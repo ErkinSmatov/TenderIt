@@ -1,6 +1,8 @@
+import { useAuthStore } from '@/store/authStore'
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function apiFetch<T>(path: string, init?: RequestInit, didRetry = false): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     credentials: 'include', // send httpOnly cookies cross-origin
@@ -8,14 +10,24 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   })
 
   if (res.status === 401) {
-    // Attempt silent refresh — /api/auth/refresh endpoint arrives in wave 2
+    if (didRetry) {
+      // Second 401 after a refresh attempt — session is truly expired
+      useAuthStore.getState().clearAuth()
+      throw new Error('Session expired')
+    }
+
+    // Attempt silent refresh
     const refreshed = await fetch(`${BASE}/api/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
     })
-    if (!refreshed.ok) throw new Error('Session expired')
-    // Retry original request once
-    return apiFetch<T>(path, init)
+    if (!refreshed.ok) {
+      useAuthStore.getState().clearAuth()
+      throw new Error('Session expired')
+    }
+
+    // Retry original request exactly once
+    return apiFetch<T>(path, init, true)
   }
 
   if (!res.ok) {
