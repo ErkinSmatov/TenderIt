@@ -1,6 +1,7 @@
 # Phase 3 — Tender Lookup: Discussion Context
 
 **Created:** 2026-06-10  
+**Updated:** 2026-06-10 (added full API contract from official docs)  
 **Status:** Ready for planning  
 **Requirements covered:** SRCH-01, SRCH-02, SRCH-03, SRCH-04
 
@@ -8,39 +9,118 @@
 
 ## Summary
 
-Phase 3 lets users find a specific tender by its portal ID, view its details, and add it to their watchlist. The key constraint is that **the Unified Services REST API is undocumented** — we only have a token. Wave 0 must be an API discovery spike before any integration code is written.
+Phase 3 lets users find a specific tender by portal announcement number, view its details, and add it to their watchlist. The API is documented at `https://goszakup.gov.kz/ru/developer/ows_v3` — we now know the endpoints, field names, and schema. **One unknown remains: the exact `refBuyStatusId` integer values**, which must be resolved in Wave 0 by querying the справочник endpoint. Everything else is implementable.
+
+---
+
+## API Contract (Confirmed from Official Docs)
+
+**Base URL:** `https://ows.goszakup.gov.kz`  
+**Auth:** `Authorization: Bearer <token>` — tokens are valid 1 year  
+**GraphQL endpoint:** `POST /v3/graphql`  
+**REST fallback:** `GET /v3/trd-buy/number-anno/{numberAnno}` + `GET /v3/lots/number-anno/{numberAnno}`
+
+### Decision: Use GraphQL (not REST)
+
+`TrdBuy` has a nested `Lots` field in the GraphQL schema — one query returns announcement + all lots. REST would require two parallel calls. GraphQL is strictly better here.
+
+### GraphQL query for tender lookup
+
+```graphql
+query TenderByNumber($numberAnno: String!) {
+  TrdBuy(filter: { numberAnno: $numberAnno }, limit: 1) {
+    id
+    numberAnno
+    nameRu
+    nameKz
+    totalSum
+    countLots
+    customerBin
+    customerNameRu
+    customerNameKz
+    refBuyStatusId
+    RefBuyStatus {
+      id
+      nameRu
+      nameKz
+      code
+    }
+    startDate
+    endDate
+    publishDate
+    lastUpdateDate
+    Lots {
+      id
+      lotNumber
+      nameRu
+      nameKz
+      descriptionRu
+      amount
+      refLotStatusId
+    }
+  }
+}
+```
+
+### Key TrdBuy fields (confirmed from schema)
+
+| GraphQL field | DB column | Description |
+|---|---|---|
+| `numberAnno` | `number_anno` | Nomination number — **String, not Int** — this is what users paste |
+| `nameRu` | `name_ru` | Tender title in Russian |
+| `nameKz` | `name_kz` | Tender title in Kazakh |
+| `totalSum` | `total_sum` | Total planned amount (Float) |
+| `customerNameRu` | `customer_name_ru` | Customer name in Russian |
+| `customerNameKz` | `customer_name_kz` | Customer name in Kazakh |
+| `refBuyStatusId` | `status_id` | Status code (Int) — Phase 5 polls this field |
+| `RefBuyStatus.nameRu` | `status_name_ru` | Human-readable status name |
+| `startDate` | `start_date` | Application acceptance start (String → TIMESTAMPTZ) |
+| `endDate` | `end_date` | Application acceptance end / deadline (String → TIMESTAMPTZ) |
+| `publishDate` | `publish_date` | Publication date |
+
+### `Lots` fields (confirmed from schema)
+
+| GraphQL field | Description |
+|---|---|
+| `nameRu` | Lot name in Russian |
+| `descriptionRu` | Lot detailed description |
+| `amount` | Lot amount (Float) |
+| `lotNumber` | Lot number within announcement |
+
+### 404 format (confirmed)
+
+```json
+{
+  "name": "Not Found",
+  "message": "...",
+  "code": 0,
+  "status": 404,
+  "type": "yii\\web\\NotFoundHttpException"
+}
+```
+
+GraphQL returns `TrdBuy: []` (empty array) for an unknown `numberAnno` — not HTTP 404. Backend must treat empty array as not-found and return 404.
+
+---
+
+## Wave 0 — Targeted Spike (Still Required)
+
+Wave 0 is now **narrow**: the API contract is known. The only blocker is:
+
+1. **Confirm token works** — run `{ __typename }` query against `/v3/graphql`  
+2. **Get status reference values** — call `GET /v3/справочники` or GraphQL introspection to find what `refBuyStatusId` code means "open for applications (принимаются заявки)". This value is the trigger for Phase 5 notifications.
+3. **Confirm `numberAnno` format** — run the TrdBuy query with a real tender ID; record the actual string value returned (is it `"123456"`, `"RU-2025-123456"`, or something else?)
+4. **Record a real sample response** — redact sensitive fields, save to `backend/spikes/findings/SPIKE-01-GRAPHQL-FINDINGS.md`
+
+Wave 0 output gates Wave 1. **Do not start Wave 1 without the status code for "open"**.
+
+**Update existing spike test:** `backend/tests/spikes/test_spike01_goszakup.py` already uses `/v3/graphql` and Bearer auth — update it to also test the TrdBuy query.
 
 ---
 
 ## Decisions
 
-### 1. API Discovery Is Wave 0 (Blocker)
-
-**Decision:** Phase 3 begins with an API discovery spike (Wave 0) that runs live HTTP calls against the goszakup Unified Services REST API to determine:
-- Base URL of the Unified Services REST API (distinct from the old GraphQL endpoint `ows.goszakup.gov.kz/v3/graphql`)
-- Endpoint for fetching a single tender by its portal ID
-- Exact format of `tenderID` (numeric? string? prefix? length?)
-- Authentication header format (`Bearer <token>` or custom header)
-- Response schema: fields returned, field names, status codes
-- Rate limits (if discoverable)
-- What happens on a not-found ID (404 vs 200 with empty body vs error body)
-
-**Why:** No API documentation was provided with the token. tenderID format is unknown. Attempting to write integration code without this information would produce untestable stubs.
-
-**Spike output:** `backend/spikes/findings/SPIKE-01-UNIFIED-REST-FINDINGS.md` with curl examples, actual response samples (redacted of any sensitive data), and the confirmed endpoint + field mapping.
-
-**Note:** The existing `backend/tests/spikes/test_spike01_goszakup.py` targets the old GraphQL endpoint and should be updated or replaced after the spike with a new REST-targeted test.
-
-**Starting point for discovery (try these in order):**
-1. `https://ows.goszakup.gov.kz/` — root, may list available APIs
-2. `https://ows.goszakup.gov.kz/v3/` — v3 REST root
-3. `https://api.goszakup.gov.kz/` — alternative domain
-4. Auth: `Authorization: Bearer <token>` header (standard; confirm it works)
-5. Public goszakup developer portal if accessible (developer.goszakup.gov.kz or similar)
-
----
-
-### 2. Database Model
+### 1. Database Model
 
 **Decision:** Two tables.
 
@@ -48,14 +128,19 @@ Phase 3 lets users find a specific tender by its portal ID, view its details, an
 -- Cached tender data from goszakup portal
 tenders
   id                SERIAL PRIMARY KEY
-  tender_id_portal  VARCHAR(50)  UNIQUE NOT NULL  -- номер объявления из goszakup
-  title             TEXT
-  customer_name     VARCHAR(500)
-  lot_description   TEXT
-  contract_amount   NUMERIC(18, 2)
-  deadline          TIMESTAMPTZ
-  status            VARCHAR(100)                  -- Phase 5 ARQ polling updates this field
-  raw_data          JSONB                         -- full API response snapshot (no schema lock-in)
+  number_anno       VARCHAR(100) UNIQUE NOT NULL  -- TrdBuy.numberAnno — String
+  name_ru           TEXT
+  name_kz           TEXT
+  total_sum         NUMERIC(18, 2)
+  customer_name_ru  VARCHAR(500)
+  customer_name_kz  VARCHAR(500)
+  status_id         INT                          -- TrdBuy.refBuyStatusId — Phase 5 polls this
+  status_name_ru    VARCHAR(200)                 -- TrdBuy.RefBuyStatus.nameRu
+  start_date        TIMESTAMPTZ
+  end_date          TIMESTAMPTZ                  -- submission deadline
+  publish_date      TIMESTAMPTZ
+  lots_data         JSONB                        -- serialized Lots array (nameRu, descriptionRu, amount)
+  raw_data          JSONB                        -- full GraphQL response snapshot
   cached_at         TIMESTAMPTZ NOT NULL DEFAULT now()
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 
@@ -66,91 +151,74 @@ user_watchlist
   tender_id         INT NOT NULL  REFERENCES tenders(id) ON DELETE CASCADE
   added_at          TIMESTAMPTZ NOT NULL DEFAULT now()
   notification_on   BOOLEAN NOT NULL DEFAULT true
-  UNIQUE(user_id, tender_id)  -- user can only add a tender once
+  UNIQUE(user_id, tender_id)
 ```
 
-**Rationale for `raw_data JSONB`:**
-- The API schema is unknown until the spike runs
-- Storing the full response in JSONB lets us add new displayed fields later (Phase 5 may need additional fields for submission) without a migration
-- Named scalar columns (`title`, `customer_name`, etc.) are extracted for indexed queries and UI display
+**Rationale for `lots_data JSONB`:**  
+A tender can have multiple lots. Storing them in a separate `lots` table adds complexity with no Phase 3 benefit. JSONB is sufficient for display; if Phase 5 needs per-lot targeting, we add the table then.
 
-**Rationale for two tables:**
-- Same tender can theoretically be watched by multiple users — cache it once, serve to all
-- `tenders` acts as an API response cache
-- `user_watchlist` is the per-user relationship, independent of cache state
+**Rationale for `raw_data JSONB`:**  
+Phase 5 (submission payload) may need additional TrdBuy fields (e.g. `systemId`, `refTradeMethodsId`). Storing the full response avoids a future re-fetch just to get a new field.
+
+**Rationale for two tables:**  
+Same tender can be watched by multiple users — cache once, serve to all. `user_watchlist` is a clean M:N join.
 
 ---
 
-### 3. Cache Strategy
+### 2. Cache Strategy
 
 **Decision:** Always cache in `tenders` on lookup, even before adding to watchlist.
 
 **Rules:**
-- On lookup by `tender_id_portal`: check `tenders` table first
-  - If found AND `cached_at` is within **30 minutes** → return cached data (no API call)
-  - If found AND `cached_at` is older than 30 minutes → re-fetch from API, `UPDATE tenders SET ... cached_at = now()`
-  - If not found → fetch from API, `INSERT INTO tenders`
-- Cache entry exists regardless of watchlist status (user may look up same tender multiple times)
-- 30-minute TTL for tender card display is acceptable; tender status does not change minute-to-minute during the pre-submission period
-- **Phase 5 ARQ polling** will update the `status` field directly (bypassing the TTL) — that's a separate concern, not part of Phase 3
+- Lookup by `number_anno`: check `tenders` table first
+  - Found AND `cached_at` within **30 minutes** → return cached row (no API call)
+  - Found AND `cached_at` older than 30 minutes → re-fetch from API, `UPDATE`
+  - Not found → fetch from API, `INSERT`
+- Not-found from API → return `404`, do NOT insert into `tenders`
+- **Phase 5 ARQ polling** updates `status_id` + `status_name_ru` + `cached_at` directly — bypasses the 30-min TTL entirely. That's Phase 5, not Phase 3.
 
-**Not-found handling:**
-- If API returns not-found for a portal ID → return 404 from backend, never insert into `tenders`
-- Frontend shows: "Тендер с номером {ID} не найден на портале"
-- No crash, no 500, no empty card
+**Frontend not-found message:** `"Тендер с номером {ID} не найден на портале"`
 
 ---
 
-### 4. tenderID Validation
+### 3. `number_anno` Validation
 
-**Decision:** Defer precise validation rules to spike findings.
-
-**Interim approach:** accept any non-empty string up to 50 chars, strip whitespace. Once spike establishes the format (e.g., "6 digits", "prefix+8 digits"), add a regex validator in the Pydantic schema.
+**Decision:** Accept any non-empty string up to 100 chars, strip whitespace. No regex until Wave 0 spike confirms the exact format.
 
 ---
 
-### 5. Scope Boundaries for Phase 3
+### 4. Scope Boundaries
 
-**In scope:**
-- Lookup by single tenderID
-- Tender card display (title, lot, customer, amount, deadline, status)
-- Add to / remove from watchlist
-- Not-found error handling
-- `tenders` + `user_watchlist` models and migration
-- Backend `GET /api/tenders/{tender_id}` + `POST /api/watchlist` + `DELETE /api/watchlist/{tender_id}` + `GET /api/watchlist`
-- Frontend: search bar page, tender card component, watchlist on dashboard
+**In Phase 3:**
+- `GET /api/tenders/{number_anno}` — lookup + cache
+- `POST /api/watchlist` — add tender to watchlist  
+- `DELETE /api/watchlist/{number_anno}` — remove  
+- `GET /api/watchlist` — list watched tenders for dashboard  
+- Frontend: search input page, tender card, watchlist section on dashboard
 
-**Out of scope (Phase 5):**
-- ARQ polling job for status updates
-- Tender status change notifications
-- Auto-submit flow
+**Phase 5 (not here):** ARQ polling, status change detection, Telegram/WhatsApp notify, auto-submit
 
-**Out of scope (v2):**
-- Keyword search / browse
-- Filters (amount, deadline, region)
-- MP.kz integration
+**v2 (deferred):** keyword search, filters, MP.kz
 
 ---
 
-## Wave Plan (Recommended)
+## Wave Plan
 
-| Wave | Content |
-|------|---------|
-| Wave 0 | API discovery spike — determine endpoints, tenderID format, response schema |
-| Wave 1 | DB models + migration (`tenders` + `user_watchlist`) + service layer |
-| Wave 2 | Backend API routes + cache logic + tests |
-| Wave 3 | Frontend: search page + tender card + watchlist management |
-
-Wave 0 output must be complete before Wave 1 begins. Waves 1–3 can proceed once endpoint + schema are known.
+| Wave | Content | Gate |
+|------|---------|------|
+| Wave 0 | Spike: confirm token, get status reference codes, record real response | Must complete before Wave 1 |
+| Wave 1 | DB models + Alembic migration + goszakup GraphQL service layer | After Wave 0 |
+| Wave 2 | Backend routes + cache logic + unit tests | After Wave 1 |
+| Wave 3 | Frontend: search page, tender card component, watchlist on dashboard | After Wave 2 |
 
 ---
 
 ## Existing Patterns to Follow
 
-- SQLAlchemy 2.x async with `lazy="selectin"` on all relationships (established in Phase 2)
-- Alembic migration with `revision` id (follow `0001_create_users_company_profiles.py` naming)
-- `models/__init__.py` must import all new models for Alembic to detect them
-- Pydantic schemas in `backend/app/schemas/` with field validators
-- `get_current_user` dependency from `backend/app/deps.py` for auth-protected routes
-- HTTPx for outbound API calls (already in deps)
-- React Hook Form + Zod on frontend for forms
+- SQLAlchemy 2.x async with `lazy="selectin"` on all relationships (Phase 2)
+- Alembic: revision ID pattern, `models/__init__.py` must import all new models
+- Pydantic schemas in `backend/app/schemas/` with `@field_validator`
+- `get_current_user` dependency from `backend/app/deps.py` for protected routes
+- HTTPx for outbound API calls
+- React Hook Form + Zod on frontend (Phase 2 `CompanyProfileForm` as reference)
+- **НИКОГДА не хранить токен goszakup в коде** — только `settings.goszakup_api_token` из `.env`
