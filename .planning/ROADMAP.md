@@ -2,8 +2,8 @@
 
 ## Project
 
-**Core value:** Подача тендерной заявки за 3 клика: нашли → подписали ЭЦП → отправлено автоматически.
-**Platforms v1:** goszakup.gov.kz + MP.kz
+**Core value:** Подача тендерной заявки за 3 клика: вставил ID → подписал ЭЦП → система подаёт автоматически когда тендер откроется.
+**Platforms v1:** goszakup.gov.kz (Унифицированные сервисы API, токен получен)
 **Stack:** Next.js 14 + FastAPI + PostgreSQL 16 + Redis + ARQ + MinIO
 
 ---
@@ -53,16 +53,16 @@
 - [ ] 02-05-PLAN.md — Wave 4: company profile GET/PUT + profile page + form
 **UI hint**: yes
 
-### Phase 3: Tender Data Pipeline
-**Goal**: Users can search, filter, and browse aggregated tenders sourced from both goszakup and MP.kz via background sync workers running on schedule.
+### Phase 3: Tender Lookup
+**Goal**: Users can find a specific tender by ID, view its full details, and add it to their watchlist for document preparation and auto-submission.
 **Mode:** mvp
 **Depends on**: Phase 2
-**Requirements**: SRCH-01, SRCH-02, SRCH-03, SRCH-04, SRCH-05, SRCH-06, SRCH-07
+**Requirements**: SRCH-01, SRCH-02, SRCH-03, SRCH-04
 **Success Criteria** (what must be TRUE):
-  1. ARQ sync workers run on schedule (goszakup every 15 min, MP.kz every 30 min) and upsert tenders into the unified `tenders` table without duplicates
-  2. User can search tenders by keyword and see relevant results from both portals on a single feed
-  3. User can filter the tender feed by contract amount range, deadline (days remaining), and region and the list updates accordingly
-  4. Each tender in the list displays: title, contract amount, source portal, submission deadline, and region in a readable card
+  1. User can enter a tender ID (номер объявления) into a search field and the system returns the matching tender from goszakup Unified Services API
+  2. User sees a tender card with: title, lot description, customer (заказчик), contract amount, submission deadline, and current status
+  3. User can add the tender to their watchlist; the watchlist is persisted and visible on the dashboard
+  4. An unknown or malformed tender ID returns a clear "not found" message, not a crash
 **Plans**: TBD
 **UI hint**: yes
 
@@ -81,30 +81,32 @@
 **UI hint**: yes
 
 ### Phase 5: EDS Signing & Submission
-**Goal**: Users can create an application draft, review attached documents, sign the payload via NCALayer, and have the system automatically submit it to the portal with durable retry and full status tracking.
+**Goal**: Users can prepare a signed application draft in advance; when a watched tender opens for applications, the system notifies the user via Telegram/WhatsApp and auto-submits upon confirmation (or after 15-minute timeout fallback).
 **Mode:** mvp
 **Depends on**: Phase 3, Phase 4
-**Requirements**: SIGN-01, SIGN-02, SIGN-03, SIGN-04, SIGN-05, APPL-01, APPL-02, APPL-03, APPL-04, APPL-05, APPL-06
+**Requirements**: SIGN-01, SIGN-02, SIGN-03, SIGN-04, SIGN-05, APPL-01, APPL-02, APPL-03, APPL-04, APPL-05, APPL-06, APPL-07, APPL-08, APPL-09
 **Success Criteria** (what must be TRUE):
   1. On any signing page, the UI shows a real-time NCALayer connectivity status indicator (green/red); the Sign button is disabled when NCALayer is unreachable, and an installation guide is shown if it is not running
   2. Before signing, user can see the EDS certificate owner name and expiry date; a persistent warning appears if the certificate expires within 30 days
-  3. User can create an application draft for a selected tender, review the list of documents that will be included, enter their NCALayer PIN, and complete signing — receiving the signed XML back from NCALayer within the same page flow
-  4. After signing, the system automatically submits the application to the portal via API, and the application status transitions through: Черновик → Подписано → Отправляется → Отправлено
-  5. If submission fails, the application enters Ошибка status with the raw portal error message displayed in the UI, and the signed XML is retained for manual download; the durable ARQ job retries for up to 30 minutes before marking final failure
-  6. User can view the full history of all submitted applications with their current statuses
+  3. User can create an application draft for a watched tender, review the list of documents that will be included, enter their NCALayer PIN, and complete signing — receiving the signed XML back from NCALayer within the same page flow
+  4. After signing, application is stored in Подписано state and waits for the tender to open
+  5. An ARQ polling job checks the status of each watched tender with a signed draft via goszakup API; when status changes to «open for applications», the job fires immediately
+  6. User receives a Telegram/WhatsApp message: «Тендер №{ID} открыт. Подаём заявку? [Да] [Нет]»; if "Да" or no reply in 15 minutes → system submits automatically; if "Нет" → submission cancelled
+  7. Application status transitions: Черновик → Подписано → Ожидает открытия → Отправляется → Отправлено
+  8. If submission fails, the application enters Ошибка status with the raw portal error message; the durable ARQ job retries for up to 30 minutes before marking final failure; signed XML is retained for manual download
+  9. User can view the full history of all submitted applications with their current statuses
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 6: Notifications
-**Goal**: Users can subscribe to search-based tender alerts and receive timely notifications via Telegram and WhatsApp when new matching tenders appear.
+**Goal**: Users can connect Telegram and WhatsApp to receive tender-status notifications and manage their watchlist from a settings page.
 **Mode:** mvp
-**Depends on**: Phase 3
-**Requirements**: NOTIF-01, NOTIF-02, NOTIF-03, NOTIF-04, NOTIF-05
+**Depends on**: Phase 5
+**Requirements**: NOTIF-04, NOTIF-05, NOTIF-06
 **Success Criteria** (what must be TRUE):
-  1. User can save their current search filters as a named notification subscription from the tender search UI
-  2. User can connect their Telegram account by sending `/start` to the TenderIt bot; new tenders matching their subscription arrive as Telegram messages within 5 minutes of the ARQ dispatcher run
-  3. User can connect WhatsApp via Twilio and receive the same subscription alerts as a WhatsApp message
-  4. User can view, enable/disable, and delete their notification subscriptions from a settings page
+  1. User can connect their Telegram account by sending `/start` to the TenderIt bot; account link is stored and used for all tender-status notifications (tender opened alerts + submission confirmations)
+  2. User can connect WhatsApp via Twilio and receive the same tender-status notifications
+  3. User can view their watchlist in settings — see each tracked tender with its current status, and enable/disable/remove entries
 **Plans**: TBD
 **UI hint**: yes
 
@@ -125,46 +127,44 @@
 
 ## Coverage Validation
 
-| REQ-ID | Phase |
-|--------|-------|
-| SPIKE-01 | Phase 1 |
-| SPIKE-02 | Phase 1 |
-| SPIKE-03 | Phase 1 |
-| SPIKE-04 | Phase 1 |
-| SPIKE-05 | Phase 1 |
-| AUTH-01 | Phase 2 |
-| AUTH-02 | Phase 2 |
-| AUTH-03 | Phase 2 |
-| AUTH-04 | Phase 2 |
-| COMP-01 | Phase 2 |
-| COMP-02 | Phase 2 |
-| SRCH-01 | Phase 3 |
-| SRCH-02 | Phase 3 |
-| SRCH-03 | Phase 3 |
-| SRCH-04 | Phase 3 |
-| SRCH-05 | Phase 3 |
-| SRCH-06 | Phase 3 |
-| SRCH-07 | Phase 3 |
-| DOCS-01 | Phase 4 |
-| DOCS-02 | Phase 4 |
-| DOCS-03 | Phase 4 |
-| DOCS-04 | Phase 4 |
-| DOCS-05 | Phase 4 |
-| SIGN-01 | Phase 5 |
-| SIGN-02 | Phase 5 |
-| SIGN-03 | Phase 5 |
-| SIGN-04 | Phase 5 |
-| SIGN-05 | Phase 5 |
-| APPL-01 | Phase 5 |
-| APPL-02 | Phase 5 |
-| APPL-03 | Phase 5 |
-| APPL-04 | Phase 5 |
-| APPL-05 | Phase 5 |
-| APPL-06 | Phase 5 |
-| NOTIF-01 | Phase 6 |
-| NOTIF-02 | Phase 6 |
-| NOTIF-03 | Phase 6 |
-| NOTIF-04 | Phase 6 |
-| NOTIF-05 | Phase 6 |
+| REQ-ID | Phase | Notes |
+|--------|-------|-------|
+| SPIKE-01 | Phase 1 | ✅ Resolved |
+| SPIKE-02 | Phase 1 | ✅ Resolved |
+| SPIKE-03 | Phase 1 | Pending |
+| SPIKE-05 | Phase 1 | Pending |
+| AUTH-01 | Phase 2 | |
+| AUTH-02 | Phase 2 | |
+| AUTH-03 | Phase 2 | |
+| AUTH-04 | Phase 2 | |
+| COMP-01 | Phase 2 | |
+| COMP-02 | Phase 2 | |
+| SRCH-01 | Phase 3 | Lookup by tenderID |
+| SRCH-02 | Phase 3 | Unified Services API |
+| SRCH-03 | Phase 3 | |
+| SRCH-04 | Phase 3 | Watchlist |
+| DOCS-01 | Phase 4 | |
+| DOCS-02 | Phase 4 | |
+| DOCS-03 | Phase 4 | |
+| DOCS-04 | Phase 4 | |
+| DOCS-05 | Phase 4 | |
+| SIGN-01 | Phase 5 | |
+| SIGN-02 | Phase 5 | |
+| SIGN-03 | Phase 5 | |
+| SIGN-04 | Phase 5 | |
+| SIGN-05 | Phase 5 | |
+| APPL-01 | Phase 5 | |
+| APPL-02 | Phase 5 | |
+| APPL-03 | Phase 5 | |
+| APPL-04 | Phase 5 | |
+| APPL-05 | Phase 5 | |
+| APPL-06 | Phase 5 | |
+| APPL-07 | Phase 5 | Status polling ARQ |
+| APPL-08 | Phase 5 | Notify on open |
+| APPL-09 | Phase 5 | Auto-submit + confirm |
+| NOTIF-04 | Phase 6 | Telegram connect |
+| NOTIF-05 | Phase 6 | WhatsApp connect |
+| NOTIF-06 | Phase 6 | Watchlist mgmt |
 
-**Total mapped: 39/39**
+**Total mapped: 36/36**
+*(SPIKE-04, SRCH-05/06/07, NOTIF-01/02/03 → v2)*

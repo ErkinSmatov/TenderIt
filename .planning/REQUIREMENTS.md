@@ -14,15 +14,12 @@
 - [ ] **COMP-01**: Пользователь может заполнить профиль компании: БИН, название, юридический адрес
 - [ ] **COMP-02**: Пользователь может редактировать профиль компании в любое время
 
-### Tender Search & Discovery (SRCH)
+### Tender Lookup (SRCH)
 
-- [ ] **SRCH-01**: Система синхронизирует тендеры с goszakup.gov.kz через официальный GraphQL API (фоновый воркер, каждые 15 мин)
-- [ ] **SRCH-02**: Система синхронизирует тендеры с MP.kz (каждые 30 мин)
-- [ ] **SRCH-03**: Пользователь может искать тендеры по ключевым словам
-- [ ] **SRCH-04**: Пользователь может фильтровать тендеры по сумме контракта (от/до)
-- [ ] **SRCH-05**: Пользователь может фильтровать тендеры по дедлайну (осталось X дней)
-- [ ] **SRCH-06**: Пользователь может фильтровать тендеры по региону (область РК)
-- [ ] **SRCH-07**: Пользователь видит карточку тендера: название, сумма, платформа, дедлайн, регион
+- [ ] **SRCH-01**: Пользователь может найти тендер по номеру объявления (tenderID) через поле поиска
+- [ ] **SRCH-02**: Система загружает данные тендера из goszakup.kz через Унифицированные сервисы API (токен получен, SPIKE-01 закрыт)
+- [ ] **SRCH-03**: Пользователь видит карточку тендера: название, лот, заказчик, сумма, дедлайн, текущий статус тендера
+- [ ] **SRCH-04**: Пользователь может добавить тендер в watchlist (список отслеживаемых) для подготовки заявки и авто-подачи
 
 ### Document Vault (DOCS)
 
@@ -48,21 +45,21 @@
 - [ ] **APPL-04**: Пользователь видит статус заявки: Черновик → Подписано → Отправляется → Отправлено / Ошибка
 - [ ] **APPL-05**: Пользователь видит историю всех поданных заявок
 - [ ] **APPL-06**: Система уведомляет пользователя в UI, если автоматическая отправка завершилась ошибкой, с объяснением причины
+- [ ] **APPL-07**: Система периодически опрашивает goszakup API и отслеживает статус каждого тендера в watchlist (ARQ polling job)
+- [ ] **APPL-08**: Когда тендер переходит в статус «открыт для подачи заявок», система немедленно отправляет уведомление пользователю в Telegram/WhatsApp: «Тендер №{ID} открыт. Подаём заявку? [Да] [Нет]»
+- [ ] **APPL-09**: Если пользователь нажал «Да» — заявка подаётся автоматически; если «Нет» — заявка отменяется; если ответа нет в течение 15 минут — заявка подаётся автоматически (fallback)
 
 ### Notifications (NOTIF)
 
-- [ ] **NOTIF-01**: Пользователь может сохранить фильтры поиска как подписку на уведомления
-- [ ] **NOTIF-02**: Пользователь получает уведомление в Telegram о новых тендерах, соответствующих его фильтрам
-- [ ] **NOTIF-03**: Пользователь получает уведомление в WhatsApp о новых тендерах, соответствующих его фильтрам
-- [ ] **NOTIF-04**: Пользователь может подключить Telegram-бот через команду /start с привязкой к аккаунту
-- [ ] **NOTIF-05**: Пользователь может управлять своими подписками на уведомления (включить/отключить/удалить)
+- [ ] **NOTIF-04**: Пользователь может подключить Telegram-бот через команду /start с привязкой к аккаунту (используется для уведомлений об открытии тендеров)
+- [ ] **NOTIF-05**: Пользователь может подключить WhatsApp (Twilio) для получения уведомлений об открытии тендеров
+- [ ] **NOTIF-06**: Пользователь может просмотреть и управлять watchlist (включить/отключить/удалить отслеживаемые тендеры)
 
 ### Technical Spikes — Phase 1 (SPIKE)
 
-- [ ] **SPIKE-01**: Верифицировать goszakup GraphQL API: интроспектировать схему, протестировать аутентификацию, измерить rate limits
-- [ ] **SPIKE-02**: Верифицировать NCALayer WebSocket протокол: живое подключение к ws://localhost:14579, вызов `signXml`, запись точного формата сообщений
+- [x] **SPIKE-01**: ~~Верифицировать goszakup GraphQL API~~ → **RESOLVED**: токен для Унифицированных сервисов goszakup.kz получен (2026-06-09); используем REST Unified Services API вместо GraphQL
+- [x] **SPIKE-02**: Верифицировать NCALayer WebSocket протокол — **RESOLVED** (2026-05-28): dual-mode, порт 13579, 1.x=commonUtils+array+raw XML, 2.x=basics+object+base64
 - [ ] **SPIKE-03**: Захватить submission payload: перехватить браузерный трафик при ручной подаче заявки на goszakup, зафиксировать все обязательные поля XML
-- [ ] **SPIKE-04**: Верифицировать MP.kz API: анализ network трафика MP.kz на предмет внутренних API endpoints, прежде чем использовать Playwright scraping
 - [ ] **SPIKE-05**: Юридическая проверка: подтвердить допустимость автоматической подачи заявок от имени компании и требования к локализации данных в РК
 
 ---
@@ -77,6 +74,10 @@
 - Данные директора, банковские реквизиты в профиле (добавить, когда нужны для сабмита)
 - Telegram: статус отправки заявки
 - WhatsApp: статус отправки заявки
+- **SRCH-FILTER**: Фильтры тендеров по сумме, дедлайну, региону (не нужны при lookup по ID)
+- **SRCH-KEYWORD**: Поиск тендеров по ключевым словам (browse, а не lookup)
+- **MP.kz интеграция** (SPIKE-04): Верифицировать и подключить MP.kz как второй источник тендеров
+- **NOTIF-SUBSCRIPTION**: Подписки на фильтры поиска + уведомления о новых совпадающих тендерах (NOTIF-01, NOTIF-02, NOTIF-03)
 
 ---
 
@@ -95,10 +96,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SPIKE-01 | Phase 1 — Spikes & Foundation | Pending |
-| SPIKE-02 | Phase 1 — Spikes & Foundation | Pending |
+| SPIKE-01 | Phase 1 — Spikes & Foundation | ✅ Resolved 2026-06-09 |
+| SPIKE-02 | Phase 1 — Spikes & Foundation | ✅ Resolved 2026-05-28 |
 | SPIKE-03 | Phase 1 — Spikes & Foundation | Pending |
-| SPIKE-04 | Phase 1 — Spikes & Foundation | Pending |
 | SPIKE-05 | Phase 1 — Spikes & Foundation | Pending |
 | AUTH-01 | Phase 2 — Auth & Company Profile | Pending |
 | AUTH-02 | Phase 2 — Auth & Company Profile | Pending |
@@ -106,13 +106,10 @@
 | AUTH-04 | Phase 2 — Auth & Company Profile | Pending |
 | COMP-01 | Phase 2 — Auth & Company Profile | Pending |
 | COMP-02 | Phase 2 — Auth & Company Profile | Pending |
-| SRCH-01 | Phase 3 — Tender Data Pipeline | Pending |
-| SRCH-02 | Phase 3 — Tender Data Pipeline | Pending |
-| SRCH-03 | Phase 3 — Tender Data Pipeline | Pending |
-| SRCH-04 | Phase 3 — Tender Data Pipeline | Pending |
-| SRCH-05 | Phase 3 — Tender Data Pipeline | Pending |
-| SRCH-06 | Phase 3 — Tender Data Pipeline | Pending |
-| SRCH-07 | Phase 3 — Tender Data Pipeline | Pending |
+| SRCH-01 | Phase 3 — Tender Lookup | Pending |
+| SRCH-02 | Phase 3 — Tender Lookup | Pending |
+| SRCH-03 | Phase 3 — Tender Lookup | Pending |
+| SRCH-04 | Phase 3 — Tender Lookup | Pending |
 | DOCS-01 | Phase 4 — Document Vault | Pending |
 | DOCS-02 | Phase 4 — Document Vault | Pending |
 | DOCS-03 | Phase 4 — Document Vault | Pending |
@@ -129,12 +126,14 @@
 | APPL-04 | Phase 5 — EDS Signing & Submission | Pending |
 | APPL-05 | Phase 5 — EDS Signing & Submission | Pending |
 | APPL-06 | Phase 5 — EDS Signing & Submission | Pending |
-| NOTIF-01 | Phase 6 — Notifications | Pending |
-| NOTIF-02 | Phase 6 — Notifications | Pending |
-| NOTIF-03 | Phase 6 — Notifications | Pending |
+| APPL-07 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-08 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-09 | Phase 5 — EDS Signing & Submission | Pending |
 | NOTIF-04 | Phase 6 — Notifications | Pending |
 | NOTIF-05 | Phase 6 — Notifications | Pending |
+| NOTIF-06 | Phase 6 — Notifications | Pending |
 
-**Total v1 requirements: 39 | Mapped: 39/39**
+**Total v1 requirements: 36 | Mapped: 36/36**
+*(SPIKE-04, SRCH-05, SRCH-06, SRCH-07, NOTIF-01, NOTIF-02, NOTIF-03 → moved to v2)*
 
-*Traceability finalized by roadmapper — 2026-05-25*
+*Traceability updated 2026-06-09 — new workflow: lookup by tenderID + auto-submit with notify+confirm*
