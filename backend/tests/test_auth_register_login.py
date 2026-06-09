@@ -1,12 +1,17 @@
 """
 Integration tests for POST /api/auth/register and POST /api/auth/login.
 
-Tests use the session-scoped AsyncClient fixture from conftest.py.
-Redis calls in register/login are mocked via monkeypatching store_refresh_token
-so tests run without a live Redis instance.
+Uses the function-scoped `auth_client` fixture (avoids session-level asyncpg teardown issues).
+Redis calls in register/login are mocked via monkeypatching store_refresh_token so tests
+run without a live Redis instance.
+
+Email addresses include a UUID suffix so tests are idempotent across multiple runs
+against a real (non-reset) Postgres instance.
 """
-import pytest
+import uuid
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -16,8 +21,12 @@ from unittest.mock import AsyncMock, patch
 REGISTER_URL = "/api/auth/register"
 LOGIN_URL = "/api/auth/login"
 
-VALID_EMAIL = "testuser@example.com"
 VALID_PASSWORD = "securepassword123"
+
+
+def unique_email(prefix: str = "user") -> str:
+    """Generate a test-run-unique email address."""
+    return f"{prefix}_{uuid.uuid4().hex[:8]}@example.com"
 
 
 # ---------------------------------------------------------------------------
@@ -26,39 +35,44 @@ VALID_PASSWORD = "securepassword123"
 
 
 @pytest.mark.asyncio
-async def test_register_success_201(client):
+async def test_register_success_201(auth_client):
     """Happy-path registration: returns 201, body has user_id + email, cookies set."""
+    email = unique_email("reg201")
     with patch("app.routers.auth.store_refresh_token", new=AsyncMock()):
-        response = await client.post(
+        response = await auth_client.post(
             REGISTER_URL,
-            json={"email": "newuser_201@example.com", "password": VALID_PASSWORD},
+            json={"email": email, "password": VALID_PASSWORD},
         )
     assert response.status_code == 201
     data = response.json()
     assert "user_id" in data
-    assert data["email"] == "newuser_201@example.com"
+    assert data["email"] == email
     # Both cookies must be set
     assert "access_token" in response.cookies
     assert "refresh_token" in response.cookies
 
 
 @pytest.mark.asyncio
-async def test_register_duplicate_email_409(client):
+async def test_register_duplicate_email_409(auth_client):
     """Registering the same email twice returns 409."""
-    email = "duplicate_test@example.com"
+    email = unique_email("dup")
     with patch("app.routers.auth.store_refresh_token", new=AsyncMock()):
-        await client.post(REGISTER_URL, json={"email": email, "password": VALID_PASSWORD})
-        response = await client.post(
+        first = await auth_client.post(
+            REGISTER_URL, json={"email": email, "password": VALID_PASSWORD}
+        )
+        assert first.status_code == 201
+        response = await auth_client.post(
             REGISTER_URL, json={"email": email, "password": VALID_PASSWORD}
         )
     assert response.status_code == 409
-    assert "email" in response.json()["detail"].lower() or "зарегистрирован" in response.json()["detail"].lower()
+    detail = response.json()["detail"].lower()
+    assert "email" in detail or "зарегистрирован" in detail
 
 
 @pytest.mark.asyncio
-async def test_register_invalid_email_422(client):
+async def test_register_invalid_email_422(auth_client):
     """Non-email input returns 422 from Pydantic validation."""
-    response = await client.post(
+    response = await auth_client.post(
         REGISTER_URL,
         json={"email": "not-an-email", "password": VALID_PASSWORD},
     )
@@ -66,11 +80,11 @@ async def test_register_invalid_email_422(client):
 
 
 @pytest.mark.asyncio
-async def test_register_short_password_422(client):
+async def test_register_short_password_422(auth_client):
     """Password shorter than 8 characters returns 422."""
-    response = await client.post(
+    response = await auth_client.post(
         REGISTER_URL,
-        json={"email": "shortpwd@example.com", "password": "short"},
+        json={"email": unique_email("shortpwd"), "password": "short"},
     )
     assert response.status_code == 422
 
@@ -81,14 +95,17 @@ async def test_register_short_password_422(client):
 
 
 @pytest.mark.asyncio
-async def test_login_success_200(client):
+async def test_login_success_200(auth_client):
     """Happy-path login: returns 200, body has user_id + email, cookies set."""
-    email = "loginuser@example.com"
+    email = unique_email("login")
     with patch("app.routers.auth.store_refresh_token", new=AsyncMock()):
         # Register first
-        await client.post(REGISTER_URL, json={"email": email, "password": VALID_PASSWORD})
+        reg = await auth_client.post(
+            REGISTER_URL, json={"email": email, "password": VALID_PASSWORD}
+        )
+        assert reg.status_code == 201
         # Then login
-        response = await client.post(
+        response = await auth_client.post(
             LOGIN_URL, json={"email": email, "password": VALID_PASSWORD}
         )
     assert response.status_code == 200
@@ -100,12 +117,15 @@ async def test_login_success_200(client):
 
 
 @pytest.mark.asyncio
-async def test_login_wrong_password_401(client):
+async def test_login_wrong_password_401(auth_client):
     """Wrong password returns 401 with no-enumeration message."""
-    email = "wrongpwd@example.com"
+    email = unique_email("wrongpwd")
     with patch("app.routers.auth.store_refresh_token", new=AsyncMock()):
-        await client.post(REGISTER_URL, json={"email": email, "password": VALID_PASSWORD})
-        response = await client.post(
+        reg = await auth_client.post(
+            REGISTER_URL, json={"email": email, "password": VALID_PASSWORD}
+        )
+        assert reg.status_code == 201
+        response = await auth_client.post(
             LOGIN_URL, json={"email": email, "password": "wrongpassword999"}
         )
     assert response.status_code == 401
@@ -113,17 +133,20 @@ async def test_login_wrong_password_401(client):
 
 
 @pytest.mark.asyncio
-async def test_login_unknown_email_401_same_message(client):
+async def test_login_unknown_email_401_same_message(auth_client):
     """Unknown email returns 401 with the same message as wrong password (no enumeration)."""
-    response_unknown = await client.post(
-        LOGIN_URL,
-        json={"email": "nonexistent@example.com", "password": VALID_PASSWORD},
-    )
-    email = "enumtest@example.com"
+    email = unique_email("enumtest")
     with patch("app.routers.auth.store_refresh_token", new=AsyncMock()):
-        await client.post(REGISTER_URL, json={"email": email, "password": VALID_PASSWORD})
-        response_wrong_pwd = await client.post(
+        reg = await auth_client.post(
+            REGISTER_URL, json={"email": email, "password": VALID_PASSWORD}
+        )
+        assert reg.status_code == 201
+        response_wrong_pwd = await auth_client.post(
             LOGIN_URL, json={"email": email, "password": "wrongpassword999"}
+        )
+        response_unknown = await auth_client.post(
+            LOGIN_URL,
+            json={"email": unique_email("nonexistent"), "password": VALID_PASSWORD},
         )
     assert response_unknown.status_code == 401
     assert response_wrong_pwd.status_code == 401
@@ -132,16 +155,15 @@ async def test_login_unknown_email_401_same_message(client):
 
 
 @pytest.mark.asyncio
-async def test_rate_limit_register_429(client):
+async def test_rate_limit_register_429(auth_client):
     """6th registration request within a minute returns 429 (slowapi)."""
-    base_email = "ratelimit_register_{i}@example.com"
     with patch("app.routers.auth.store_refresh_token", new=AsyncMock()):
         responses = []
         for i in range(6):
-            r = await client.post(
+            r = await auth_client.post(
                 REGISTER_URL,
-                json={"email": base_email.format(i=i), "password": VALID_PASSWORD},
+                json={"email": unique_email(f"rl{i}"), "password": VALID_PASSWORD},
             )
             responses.append(r)
-    # First 5 are allowed (201 or 409), 6th is 429
+    # First 5 succeed (201), 6th is rate-limited (429)
     assert responses[5].status_code == 429

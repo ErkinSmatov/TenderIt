@@ -1,9 +1,14 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
+from app.config import settings
 from app.db import engine
-from app.routers import health
+from app.routers import auth, health
+from app.routers.auth import limiter
 
 
 @asynccontextmanager
@@ -18,7 +23,23 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    # Rate limiter state
+    application.state.limiter = limiter
+    application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # CORS — allow frontend origin with credentials
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[settings.frontend_url],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     application.include_router(health.router, prefix="/health", tags=["health"])
+    application.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+
     return application
 
 
