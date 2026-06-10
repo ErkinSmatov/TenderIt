@@ -797,7 +797,7 @@ async def test_attachable_excludes_expired(authed):
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`minio_secure` в config.py**
    - Что знаем: текущий `Settings` не имеет `minio_secure` — hard-code `secure=False` в minio_service.py для dev

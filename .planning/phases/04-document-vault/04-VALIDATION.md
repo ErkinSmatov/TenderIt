@@ -19,7 +19,7 @@ created: 2026-06-11
 |----------|-------|
 | **Framework** | pytest 7.x (backend) + vitest / jest (frontend, if added) |
 | **Config file** | `backend/pytest.ini` |
-| **Quick run command** | `cd backend && pytest tests/unit/test_documents.py -x -q` |
+| **Quick run command** | `cd backend && pytest tests/test_documents.py -x -q` |
 | **Full suite command** | `cd backend && pytest tests/ -x -q` |
 | **Estimated runtime** | ~15 seconds |
 
@@ -27,7 +27,7 @@ created: 2026-06-11
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && pytest tests/unit/test_documents.py -x -q`
+- **After every task commit:** Run `cd backend && pytest tests/test_documents.py -x -q`
 - **After every plan wave:** Run `cd backend && pytest tests/ -x -q`
 - **Before `/gsd-verify-work`:** Full suite must be green
 - **Max feedback latency:** 15 seconds
@@ -38,14 +38,14 @@ created: 2026-06-11
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|--------|
-| 04-minio-service | Wave 0 | 0 | DOCS-01 | IDOR | ensure_bucket_exists is idempotent | unit | `pytest tests/unit/test_minio_service.py -x -q` | ⬜ pending |
+| 04-minio-service | Wave 0 | 0 | DOCS-01 | IDOR | ensure_bucket_exists is idempotent | unit | `pytest tests/test_documents.py -x -q` | ⬜ pending |
 | 04-document-model | Wave 0 | 0 | DOCS-01..05 | — | N/A | migration | `alembic upgrade head` | ⬜ pending |
-| 04-upload-endpoint | Wave 1 | 1 | DOCS-01 | IDOR | user_id from JWT only, not body | unit | `pytest tests/unit/test_document_routes.py::test_upload -x -q` | ⬜ pending |
-| 04-list-endpoint | Wave 1 | 1 | DOCS-02,03 | IDOR | returns only current user's docs | unit | `pytest tests/unit/test_document_routes.py::test_list -x -q` | ⬜ pending |
-| 04-presigned-url | Wave 1 | 1 | DOCS-01 | IDOR | doc.user_id == current_user.id check | unit | `pytest tests/unit/test_document_routes.py::test_presigned -x -q` | ⬜ pending |
-| 04-delete-endpoint | Wave 1 | 1 | DOCS-04 | IDOR | cannot delete another user's doc | unit | `pytest tests/unit/test_document_routes.py::test_delete_idor -x -q` | ⬜ pending |
-| 04-expiry-status | Wave 1 | 1 | DOCS-03 | — | expired doc not in /attachable | unit | `pytest tests/unit/test_document_service.py::test_expiry_status -x -q` | ⬜ pending |
-| 04-attachable-endpoint | Wave 1 | 1 | DOCS-05 | IDOR | only non-expired docs returned | unit | `pytest tests/unit/test_document_routes.py::test_attachable -x -q` | ⬜ pending |
+| 04-upload-endpoint | Wave 1 | 1 | DOCS-01 | IDOR | user_id from JWT only, not body | unit | `pytest tests/test_documents.py::test_upload -x -q` | ⬜ pending |
+| 04-list-endpoint | Wave 1 | 1 | DOCS-02,03 | IDOR | returns only current user's docs | unit | `pytest tests/test_documents.py::test_list -x -q` | ⬜ pending |
+| 04-presigned-url | Wave 1 | 1 | DOCS-01 | IDOR | doc.user_id == current_user.id check | unit | `pytest tests/test_documents.py::test_presigned -x -q` | ⬜ pending |
+| 04-delete-endpoint | Wave 1 | 1 | DOCS-04 | IDOR | cannot delete another user's doc | unit | `pytest tests/test_documents.py::test_delete_idor -x -q` | ⬜ pending |
+| 04-expiry-status | Wave 1 | 1 | DOCS-03 | — | expired doc not in /attachable | unit | `pytest tests/test_documents.py::test_expiry_status -x -q` | ⬜ pending |
+| 04-attachable-endpoint | Wave 1 | 1 | DOCS-05 | IDOR | only non-expired docs returned | unit | `pytest tests/test_documents.py::test_attachable -x -q` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -53,8 +53,8 @@ created: 2026-06-11
 
 ## Wave 0 Requirements
 
-- [ ] `backend/tests/unit/test_documents.py` — stubs for DOCS-01..DOCS-05
-- [ ] `backend/tests/unit/conftest.py` — extend with MinIO mock fixture (respx or pytest-mock)
+- [ ] `backend/tests/test_documents.py` — stubs for DOCS-01..DOCS-05
+- [ ] `backend/tests/conftest.py` — extend with MinIO mock fixture (respx or pytest-mock)
 - [ ] `python-multipart` added to `pyproject.toml` (required for FastAPI UploadFile)
 - [ ] `minio` added to `pyproject.toml`
 
