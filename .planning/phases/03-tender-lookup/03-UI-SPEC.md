@@ -1,7 +1,7 @@
 ---
 phase: 3
 slug: tender-lookup
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-10
@@ -50,17 +50,19 @@ Exceptions: none
 | Role | Size | Tailwind | Weight | Weight Class | Line Height |
 |------|------|----------|--------|--------------|-------------|
 | Body | 14px | `text-sm` | 400 regular | `font-normal` | 1.5 |
-| Label | 14px | `text-sm` | 500 medium | `font-medium` | 1.25 |
+| Label | 14px | `text-sm` | 600 semibold | `font-semibold` | 1.25 |
 | Heading | 20px | `text-xl` | 600 semibold | `font-semibold` | 1.3 |
-| Display | 24px | `text-2xl` | 700 bold | `font-bold` | 1.2 |
+| Display | 24px | `text-2xl` | 600 semibold | `font-semibold` | 1.2 |
+
+**Font weights used: exactly 2 — `font-normal` (400) for body text, `font-semibold` (600) for all emphasis roles.**
 
 **Usage rules:**
-- Display (24px bold): page `<h1>` only — "Поиск тендера", "Личный кабинет"
+- Display (24px semibold): page `<h1>` only — "Поиск тендера", "Личный кабинет"
 - Heading (20px semibold): section headings — tender card title (`nameRu`), watchlist section heading
-- Label (14px medium): form labels, field captions, lot numbers, metadata labels
+- Label (14px semibold): form labels, field captions, lot numbers, metadata labels
 - Body (14px regular): all descriptive text, lot descriptions, customer name, dates
 
-Source: inferred from existing Phase 2 usage — `text-2xl font-bold` for page h1, `text-sm font-medium` for labels, `text-sm` for error/helper text.
+Source: inferred from existing Phase 2 usage — `text-2xl font-semibold` for page h1, `text-sm font-semibold` for labels, `text-sm` for error/helper text.
 
 ---
 
@@ -74,7 +76,7 @@ Source: inferred from existing Phase 2 usage — `text-2xl font-bold` for page h
 | Destructive | #ef4444 | `text-red-500` / `bg-red-50` | Error messages, validation errors only |
 
 Accent (`bg-blue-600` / `text-blue-600`) reserved for:
-1. Primary CTA button ("Найти")
+1. Primary CTA button ("Найти тендер")
 2. Watchlist "Добавить в список" button (default state)
 3. Navigation links in dashboard nav (`text-blue-600 hover:underline` — existing pattern)
 
@@ -84,7 +86,7 @@ Accent is NOT used for: card borders, lot items, informational badges, loading s
 - "Принимаются заявки" (open): `bg-green-50 text-green-700` — green badge
 - "Завершен" / "Отменен": `bg-gray-100 text-gray-600` — gray badge
 - All other statuses: `bg-yellow-50 text-yellow-700` — amber badge
-- Badge shape: `rounded-full px-2 py-0.5 text-xs font-medium`
+- Badge shape: `rounded-full px-2 py-1 text-xs font-semibold`
 
 **Watchlist button states:**
 - Not in watchlist: `bg-blue-600 text-white` — "Добавить в список"
@@ -103,12 +105,12 @@ Source: matches established Phase 2 color vocabulary (`bg-blue-600`, `text-red-5
 
 **Structure:**
 ```
-<h1> Поиск тендера              ← Display (text-2xl font-bold mb-6)
+<h1> Поиск тендера              ← Display (text-2xl font-semibold mb-6)
 <form>
-  <label> Номер объявления      ← Label (text-sm font-medium mb-1 block)
+  <label> Номер объявления      ← Label (text-sm font-semibold mb-1 block)
   <input>                       ← border rounded px-3 py-2 w-full (matches existing pattern)
   <p> validation error          ← text-red-500 text-sm mt-1 (matches existing)
-  <button> Найти / Поиск...     ← bg-blue-600 text-white rounded px-4 py-2 disabled:opacity-50
+  <button> Найти тендер / Поиск...  ← bg-blue-600 text-white rounded px-4 py-2 font-semibold disabled:opacity-50
 <div> result area
   [loading spinner] OR [TenderCard] OR [not-found message]
 ```
@@ -133,29 +135,29 @@ Source: matches established Phase 2 color vocabulary (`bg-blue-600`, `text-red-5
 Дедлайн         [endDate formatted]    ← label + value pair (DD.MM.YYYY HH:MM)
 Статус          [StatusBadge]          ← label + badge component
 ────────────────────────────────────────
-Лоты ([countLots])                     ← section heading (text-sm font-medium text-gray-500 mb-2)
+Лоты ([countLots])                     ← section heading (text-sm font-semibold text-gray-500 mb-2)
   Лот 1  [lotNumber]  [nameRu]  [amount KZT]   ← lot list items
   ...
 ────────────────────────────────────────
 [WatchlistButton]                      ← full width on mobile, auto width on md+
 ```
 
-**Label style:** `text-sm font-medium text-gray-500` (muted label)
+**Label style:** `text-sm font-semibold text-gray-500` (muted label)
 **Value style:** `text-sm text-gray-900`
 **totalSum format:** `Intl.NumberFormat('ru-KZ', { style: 'currency', currency: 'KZT', maximumFractionDigits: 0 })` — example: "1 500 000 ₸"
 **endDate format:** `DD.MM.YYYY` — example: "30.06.2026". Show "—" if null.
 
 **Lot list item:** `flex justify-between items-center py-2 border-b border-gray-100 last:border-0`
 - Left: `text-sm text-gray-900` lot name (`nameRu`)
-- Right: `text-sm font-medium text-gray-700` lot amount (formatted KZT)
+- Right: `text-sm font-semibold text-gray-700` lot amount (formatted KZT)
 - Lot number prefix: `text-xs text-gray-400 mr-2` — "Лот 1", "Лот 2"
 
 ### 3. Watchlist Button — `WatchlistButton`
 
 States:
-- **Default (not watching):** `bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700`
+- **Default (not watching):** `bg-blue-600 text-white rounded px-4 py-2 text-sm font-semibold hover:bg-blue-700`
   Label: "Добавить в список"
-- **Active (watching):** `bg-gray-100 text-gray-700 border border-gray-300 rounded px-4 py-2 text-sm font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-300`
+- **Active (watching):** `bg-gray-100 text-gray-700 border border-gray-300 rounded px-4 py-2 text-sm font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-300`
   Label: "В списке" (hover changes to imply "Удалить")
 - **Loading:** add `opacity-50 cursor-not-allowed` to current state
 - **Transition:** no CSS transition — state change is instant after API response
@@ -169,7 +171,7 @@ Added to `/dashboard` page below existing nav links.
 **Watchlist rows:** `bg-gray-50 border border-gray-200 rounded-lg divide-y divide-gray-200`
 
 **Per-row layout:** `flex items-center justify-between px-4 py-3`
-- Left: tender title `text-sm font-medium text-gray-900` + number_anno `text-xs text-gray-500 ml-2`
+- Left: tender title `text-sm font-semibold text-gray-900` + number_anno `text-xs text-gray-500 ml-2`
 - Right: `StatusBadge` + `WatchlistButton` (remove variant, compact: `text-xs px-2 py-1`)
 
 **Empty watchlist:** see Copywriting Contract below.
@@ -213,7 +215,7 @@ No regex validation — exact format confirmed in Wave 0 spike (CONTEXT.md decis
 | Search page heading | Поиск тендера |
 | Search input label | Номер объявления |
 | Search input placeholder | Например: 123456 |
-| Primary CTA (search) | Найти |
+| Primary CTA (search) | Найти тендер |
 | Loading state button | Поиск... |
 | Not found heading | Тендер не найден |
 | Not found body | Тендер с номером {ID} не найден на портале goszakup.gov.kz. Проверьте номер и попробуйте снова. |
@@ -274,11 +276,11 @@ No third-party component blocks in this phase. All UI is hand-authored Tailwind 
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-06-10
