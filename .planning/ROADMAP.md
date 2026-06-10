@@ -63,7 +63,11 @@
   2. User sees a tender card with: title, lot description, customer (заказчик), contract amount, submission deadline, and current status
   3. User can add the tender to their watchlist; the watchlist is persisted and visible on the dashboard
   4. An unknown or malformed tender ID returns a clear "not found" message, not a crash
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 03-00-PLAN.md — Wave 0 spike: confirm token, record numberAnno/date/open-status, scaffold tests + react-query provider
+- [ ] 03-01-PLAN.md — Wave 1: Tender+UserWatchlist models, migration, goszakup service, 30-min cache-aside
+- [ ] 03-02-PLAN.md — Wave 2: tender schemas + auth-gated routes (lookup, watchlist CRUD) + integration tests
+- [ ] 03-03-PLAN.md — Wave 3: search page, TenderCard, WatchlistButton, dashboard watchlist section
 **UI hint**: yes
 
 ### Phase 4: Document Vault
@@ -118,7 +122,7 @@
 |-------|----------------|--------|-----------|
 | 1. Spikes & Foundation | 5/5 | Complete   | 2026-05-28 |
 | 2. Auth & Company Profile | 0/5 | Not started | - |
-| 3. Tender Data Pipeline | 0/0 | Not started | - |
+| 3. Tender Lookup | 0/4 | Planned | - |
 | 4. Document Vault | 0/0 | Not started | - |
 | 5. EDS Signing & Submission | 0/0 | Not started | - |
 | 6. Notifications | 0/0 | Not started | - |
