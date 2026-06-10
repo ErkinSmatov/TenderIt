@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.db import engine
-from app.routers import auth, company, health, tenders
+from app.routers import auth, company, documents, health, tenders
 from app.routers.auth import limiter
 from app.services.minio_service import ensure_bucket_exists
 
@@ -45,6 +45,7 @@ def create_app() -> FastAPI:
     application.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     application.include_router(company.router, prefix="/api/company", tags=["company"])
     application.include_router(tenders.router, prefix="/api", tags=["tenders"])
+    application.include_router(documents.router, prefix="/api", tags=["documents"])
 
     return application
 
