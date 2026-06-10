@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     resend_api_key: str = ""
     frontend_url: str = "http://localhost:3000"
+    # Phase 3: goszakup Unified Services GraphQL API (token via GOSZAKUP_API_TOKEN env)
+    # Empty default so tests run without a real token (respx mocks replace HTTP layer).
+    goszakup_api_token: str = ""
 
 
 settings = Settings()

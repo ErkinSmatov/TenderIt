@@ -197,6 +197,31 @@
 
     /* Hint text */
     .hint { font-size: 11px; color: #999; margin-top: 4px; font-style: italic; }
+
+    /* Version / mode indicator */
+    #mode-indicator {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+    #mode-indicator.mode-modern  { background: #d1e7dd; color: #0a3622; }
+    #mode-indicator.mode-legacy  { background: #fff3cd; color: #664d03; }
+    #mode-indicator.mode-unknown { background: #e9ecef; color: #495057; }
+
+    /* Legacy-mode banner (shown when 1.x detected) */
+    #legacy-banner {
+      display: none;
+      background: #fff3cd;
+      border: 2px solid #f0ad4e;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+    #legacy-banner strong { color: #856404; }
+    #legacy-banner p { color: #664d03; margin-top: 4px; line-height: 1.5; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -233,6 +258,19 @@
   </div>
 
   <!-- ============================================================
+       LEGACY-MODE BANNER (shown automatically when NCALayer 1.x is detected)
+  ============================================================ -->
+  <div id="legacy-banner">
+    <strong>⚠️ NCALayer 1.x detected — Auto-switched to Legacy Mode</strong>
+    <p>
+      NCALayer 2.x is not available for macOS (only Windows). The harness has automatically switched to:<br>
+      &bull; Module: <code>kz.gov.pki.knca.commonUtils</code><br>
+      &bull; Args format: <strong>positional array</strong> (e.g. <code>["PKCS12", "SIGNATURE", "…"]</code>) — Java reflection requires this in 1.x<br>
+      All buttons below now send the array-format requests. Record all responses in SPIKE-02-FINDINGS.md.
+    </p>
+  </div>
+
+  <!-- ============================================================
        1. CONNECTION PANEL
   ============================================================ -->
   <div class="section">
@@ -247,21 +285,21 @@
       <input type="text" id="url-fallback" value="ws://127.0.0.1:14579">
     </div>
 
-    <div class="connection-row" style="margin-top:8px;">
-      <label>NCALayer Module:</label>
-      <select id="module-select" onchange="ACTIVE_MODULE = this.value"
-              style="padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px; flex:1; max-width:380px;">
-        <option value="kz.gov.pki.knca.basics" selected>
-          kz.gov.pki.knca.basics — NCALayer 2.x (REQUIRED: upgrade to ≥ 2.0)
-        </option>
-        <option value="kz.gov.pki.knca.commonUtils">
-          kz.gov.pki.knca.commonUtils — NCALayer 1.x (EOL, not supported)
-        </option>
-      </select>
+    <div class="connection-row" style="margin-top:8px; align-items:center;">
+      <label>Mode (auto-set on connect):</label>
+      <div style="display:flex; align-items:center; gap:12px; flex:1;">
+        <select id="mode-select" onchange="setMode(this.value)"
+                style="padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px; max-width:380px;">
+          <option value="auto" selected>Auto-detect on connect (recommended)</option>
+          <option value="modern">Force Modern — kz.gov.pki.knca.basics + object args (NCALayer ≥ 2.0)</option>
+          <option value="legacy">Force Legacy — kz.gov.pki.knca.commonUtils + array args (NCALayer 1.x)</option>
+        </select>
+        <span id="mode-indicator" class="mode-unknown">⏳ Not connected</span>
+      </div>
     </div>
     <div style="font-size:11px; color:#0c5460; background:#d1ecf1; padding:6px 10px; border-radius:4px; margin-bottom:8px;">
-      ℹ️ SPIKE-02 (2026-05-28): NCALayer 1.4 is EOL — both modules fail. <strong>Minimum required: NCALayer 2.0.</strong>
-      Download: <a href="https://ncalayer.gov.kz" target="_blank">ncalayer.gov.kz</a>. Version gate fires automatically on connect.
+      ℹ️ Version auto-detected on connect (NCALayer broadcasts it). &lt;2.0 → Legacy mode (array args, commonUtils). ≥2.0 → Modern mode (object args, basics).
+      macOS users: only NCALayer 1.4 is available on macOS — Legacy mode will be auto-selected.
     </div>
     <div class="btn-row">
       <button class="primary" onclick="connect(document.getElementById('url-primary').value)">Connect (13579)</button>
@@ -289,10 +327,17 @@
       <button onclick="sendBrowseKeyStore()" id="btn-browse" disabled>Browse Key Store</button>
 
       <!-- Sign XML toggle -->
-      <button onclick="togglePanel('sign-xml-panel')" id="btn-signxml" disabled>Sign XML &darr;</button>
+      <button onclick="togglePanel('sign-xml-panel')" id="btn-signxml" disabled>Sign XML ↓</button>
 
       <!-- Sign CMS toggle -->
-      <button onclick="togglePanel('sign-cms-panel')" id="btn-signcms" disabled>Sign CMS &darr;</button>
+      <button onclick="togglePanel('sign-cms-panel')" id="btn-signcms" disabled>Sign CMS ↓</button>
+
+      <!-- Legacy probe (always visible — useful when debugging 1.x) -->
+      <button onclick="sendLegacyProbe()" id="btn-probe" disabled
+              title="Sends getKeyInfo twice: array args then object args via commonUtils. Use to identify which format 1.x accepts."
+              style="border-color:#856404; color:#856404;">
+        🔬 1.x Probe (array vs object)
+      </button>
     </div>
 
     <!-- Sign XML panel -->
@@ -347,41 +392,67 @@
     // Action buttons that should be enabled/disabled based on connection
     const ACTION_BTN_IDS = [
       'btn-version', 'btn-keyinfo', 'btn-browse',
-      'btn-signxml', 'btn-signcms', 'btn-disconnect'
+      'btn-signxml', 'btn-signcms', 'btn-disconnect', 'btn-probe'
     ];
 
     // ── Module constants ─────────────────────────────────────────
     // SPIKE-02 FINDING (2026-05-28):
-    //   NCALayer 1.4: BOTH modules fail — version is EOL, not supported.
-    //   NCALayer 2.x: use kz.gov.pki.knca.basics (REQUIRED, minimum version 2.0)
-    //   kz.gov.pki.knca.commonUtils: legacy 1.x module, kept for reference only.
+    //   NCALayer 1.4 (macOS): BOTH modules fail with object-format args.
+    //     - basics module  → "signXml is not defined in PKIExtras"
+    //     - commonUtils    → "NoSuchMethodException signXml"
+    //   Hypothesis under test: commonUtils 1.x requires POSITIONAL ARRAY args, not object.
+    //   NCALayer 2.x (Windows): use kz.gov.pki.knca.basics with object args.
     //
-    // MINIMUM REQUIRED VERSION: NCALayer 2.0
-    // Download: https://ncalayer.gov.kz
-    const MODULE_BASICS    = 'kz.gov.pki.knca.basics';      // ← CORRECT for NCALayer 2.x
-    const MODULE_LEGACY    = 'kz.gov.pki.knca.commonUtils'; // legacy 1.x, not supported
+    // Auto-detection: NCALayer broadcasts {"result":{"version":"1.4"}} on connect.
+    // LEGACY_MODE is set automatically based on detected version.
+    const MODULE_BASICS  = 'kz.gov.pki.knca.basics';      // NCALayer ≥ 2.0
+    const MODULE_LEGACY  = 'kz.gov.pki.knca.commonUtils'; // NCALayer 1.x
 
-    // Active module — always basics (requires NCALayer ≥ 2.0)
-    let ACTIVE_MODULE = MODULE_BASICS;
+    let ACTIVE_MODULE = MODULE_BASICS; // updated by mode logic
+    let LEGACY_MODE   = false;         // true when version < 2.0 detected
+    let DETECTED_VERSION = null;       // version string from broadcast
 
-    // Version gate: warn if NCALayer < 2.0 (auto-checked on connect via broadcast)
+    // setMode: 'auto' | 'modern' | 'legacy' — called by dropdown or auto-detect
+    function setMode(mode) {
+      if (mode === 'legacy' || (mode === 'auto' && DETECTED_VERSION && parseInt(DETECTED_VERSION.split('.')[0], 10) < 2)) {
+        LEGACY_MODE   = true;
+        ACTIVE_MODULE = MODULE_LEGACY;
+        document.getElementById('mode-indicator').textContent  = '⚠️ Legacy mode (1.x array args)';
+        document.getElementById('mode-indicator').className    = 'mode-indicator mode-legacy';
+        document.getElementById('legacy-banner').style.display = 'block';
+      } else if (mode === 'modern' || (mode === 'auto' && DETECTED_VERSION && parseInt(DETECTED_VERSION.split('.')[0], 10) >= 2)) {
+        LEGACY_MODE   = false;
+        ACTIVE_MODULE = MODULE_BASICS;
+        document.getElementById('mode-indicator').textContent  = '✅ Modern mode (2.x object args)';
+        document.getElementById('mode-indicator').className    = 'mode-indicator mode-modern';
+        document.getElementById('legacy-banner').style.display = 'none';
+      }
+      // 'auto' with no version yet — stay in whatever state we're in
+    }
+
+    // Version gate: auto-called when NCALayer broadcasts version on connect
     function checkVersionGate(versionStr) {
       if (!versionStr) return;
+      DETECTED_VERSION = versionStr;
       const major = parseInt(versionStr.split('.')[0], 10);
+      const modeSelect = document.getElementById('mode-select');
+
       if (major < 2) {
         addLogEntry({
           event: 'VERSION_WARNING',
           timestamp: now(),
-          message: `⚠️ NCALayer ${versionStr} detected — MINIMUM REQUIRED VERSION IS 2.0. ` +
-                   `Methods signXml, getKeyInfo are not available in 1.x. ` +
-                   `Download NCALayer 2.x from https://ncalayer.gov.kz and restart.`
+          message: `⚠️ NCALayer ${versionStr} detected (< 2.0). ` +
+                   `Auto-switching to LEGACY MODE: module=commonUtils, args=positional array. ` +
+                   `Testing hypothesis: 1.x requires ["PKCS12","SIGNATURE","…"] not {tokenType:"PKCS12",…}.`
         });
+        if (!modeSelect || modeSelect.value === 'auto') setMode('legacy');
       } else {
         addLogEntry({
           event: 'VERSION_OK',
           timestamp: now(),
-          message: `✅ NCALayer ${versionStr} — version requirement satisfied (≥ 2.0). Proceed with testing.`
+          message: `✅ NCALayer ${versionStr} — version ≥ 2.0. Modern mode: module=basics, object args.`
         });
+        if (!modeSelect || modeSelect.value === 'auto') setMode('modern');
       }
     }
 
@@ -462,6 +533,11 @@
         ['sign-xml-panel', 'sign-cms-panel'].forEach(id => {
           document.getElementById(id).classList.remove('visible');
         });
+        // Reset mode indicator
+        document.getElementById('mode-indicator').textContent = '⏳ Not connected';
+        document.getElementById('mode-indicator').className = 'mode-indicator mode-unknown';
+        document.getElementById('legacy-banner').style.display = 'none';
+        DETECTED_VERSION = null;
       }
     }
 
@@ -556,131 +632,156 @@
     }
 
     // ── Get Version ───────────────────────────────────────────────
-    // NOTE TO SPIKE EXECUTOR:
-    // If this call returns an error like "method not found" or "module not found",
-    // try the LEGACY module: replace MODULE_BASICS with MODULE_LEGACY below and re-test.
-    // Record which module version works in SPIKE-02-FINDINGS.md.
+    // Works the same in both modern and legacy mode — no args needed.
+    // NCALayer also broadcasts version automatically on connect (onmessage handler above).
     function sendGetVersion() {
-      sendMessage({
-        module: ACTIVE_MODULE,
-        method: 'getVersion'
-        // Note: 'args' is intentionally omitted for getVersion — some versions require no args.
-        // If you get "invalid args", try adding: args: {}
-      });
-      /*
-       * FALLBACK (if basics module fails — try manually in browser console):
-       * ws.send(JSON.stringify({ module: 'kz.gov.pki.knca.commonUtils', method: 'getVersion', args: {} }))
-       */
+      // Try both modules to see which responds — useful for diagnosing 1.x vs 2.x
+      sendMessage({ module: ACTIVE_MODULE, method: 'getVersion' });
     }
 
     // ── Get Key Info ──────────────────────────────────────────────
-    // NOTE TO SPIKE EXECUTOR:
-    // tokenType options to try if PKCS12 fails:
-    //   "PKCS11"         — for hardware tokens (USB eToken)
-    //   "AKKZIDCardStore" — for Kazakhstani ID cards
+    // Modern (≥2.0): object args {tokenType: "PKCS12"}
+    // Legacy (1.x):  positional array ["PKCS12"]
     // Record the full response JSON verbatim in SPIKE-02-FINDINGS.md, including
     // all certificate fields: subject, keyType, notBefore, notAfter, issuer, certSN.
     function sendGetKeyInfo() {
-      sendMessage({
-        module: ACTIVE_MODULE,
-        method: 'getKeyInfo',
-        args: {
-          tokenType: 'PKCS12'  // .p12 file (most common for ЭЦП in Kazakhstan)
-        }
-      });
-      /*
-       * FALLBACK (commonUtils legacy format):
-       * ws.send(JSON.stringify({
-       *   module: 'kz.gov.pki.knca.commonUtils',
-       *   method: 'getKeyInfo',
-       *   args: { storageName: 'PKCS12' }
-       * }))
-       */
+      if (LEGACY_MODE) {
+        // Hypothesis: 1.x commonUtils requires positional array args
+        // Java method signature: getKeyInfo(String storageName)
+        sendMessage({
+          module: MODULE_LEGACY,
+          method: 'getKeyInfo',
+          args: ['PKCS12']  // ← ARRAY format — this is what we're testing
+        });
+      } else {
+        sendMessage({
+          module: MODULE_BASICS,
+          method: 'getKeyInfo',
+          args: { tokenType: 'PKCS12' }
+        });
+      }
     }
 
     // ── Browse Key Store ──────────────────────────────────────────
+    // Modern (≥2.0): object args
+    // Legacy (1.x):  positional array [storageName, fileExtension, password]
     function sendBrowseKeyStore() {
-      sendMessage({
-        module: ACTIVE_MODULE,
-        method: 'browseKeyStore',
-        args: {
-          tokenType: 'PKCS12',
-          password: ''  // NCALayer will prompt for PIN if empty
-        }
-      });
+      if (LEGACY_MODE) {
+        sendMessage({
+          module: MODULE_LEGACY,
+          method: 'browseKeyStore',
+          args: ['PKCS12', 'p12', '']  // storageName, fileExtension, password
+        });
+      } else {
+        sendMessage({
+          module: MODULE_BASICS,
+          method: 'browseKeyStore',
+          args: { tokenType: 'PKCS12', password: '' }
+        });
+      }
     }
 
     // ── Sign XML ──────────────────────────────────────────────────
-    // NOTE TO SPIKE EXECUTOR:
-    // keyType options:
-    //   "SIGNATURE" — for signing documents (expected for tender submissions)
-    //   "AUTH"      — for TLS/authentication only — goszakup portal WILL REJECT this for document signing
-    // xmlToSign is base64-encoded UTF-8 string of the XML payload.
-    // tbsElementXPath: XPath to the element to sign (empty string = sign whole document).
-    // signatureXPath: XPath where the signature will be inserted (empty string = default).
-    // NCALayer will display a PIN dialog — the user enters the certificate PIN there (not in this page).
+    // keyType: "SIGNATURE" = document signing cert (required for tender submission)
+    //          "AUTH"      = TLS/auth cert (goszakup portal REJECTS this for document signing)
+    //
+    // CONFIRMED FORMAT DIFFERENCE (SPIKE-02, 2026-05-28):
+    //   Modern 2.x (basics):    xmlToSign = BASE64-ENCODED XML string
+    //   Legacy 1.x (commonUtils): xmlToSign = RAW XML STRING (NOT base64!)
+    //     → Passing base64 to 1.x causes: "SAXParseException: Content is not allowed in prolog"
+    //       because NCALayer feeds it directly to a Java SAX XML parser.
+    //
+    // NCALayer will display a native PIN dialog — user enters certificate PIN there.
     function sendSignXml() {
       const xmlRaw = document.getElementById('xml-input').value;
-      if (!xmlRaw.trim()) {
-        alert('XML input is empty.');
-        return;
-      }
-      const xmlBase64 = toBase64(xmlRaw);
+      if (!xmlRaw.trim()) { alert('XML input is empty.'); return; }
 
-      sendMessage({
-        module: ACTIVE_MODULE,
-        method: 'signXml',
-        args: {
-          tokenType: 'PKCS12',
-          keyType: 'SIGNATURE',       // SIGNATURE = document signing cert; AUTH = authentication cert
-          xmlToSign: xmlBase64,        // base64-encoded XML string
-          tbsElementXPath: '',         // XPath to element to sign; '' = whole document
-          signatureXPath: ''           // XPath for signature placement; '' = default
-        }
-      });
+      if (LEGACY_MODE) {
+        // 1.x commonUtils: raw XML string (NOT base64) as 3rd positional arg
+        // Java method: signXml(storageName, keyType, xmlToSign, tbsElementXPath, signatureXPath)
+        sendMessage({
+          module: MODULE_LEGACY,
+          method: 'signXml',
+          args: ['PKCS12', 'SIGNATURE', xmlRaw, '', '']
+          // ↑ xmlRaw = plain XML string — NCALayer 1.x parses it server-side with SAX
+        });
+      } else {
+        // 2.x basics: base64-encoded XML
+        const xmlBase64 = toBase64(xmlRaw);
+        sendMessage({
+          module: MODULE_BASICS,
+          method: 'signXml',
+          args: {
+            tokenType: 'PKCS12',
+            keyType: 'SIGNATURE',
+            xmlToSign: xmlBase64,
+            tbsElementXPath: '',
+            signatureXPath: ''
+          }
+        });
+      }
       /*
        * RECORDING NOTE:
-       * The response will contain the signed XML (usually base64-encoded or as XML text).
-       * Copy the full response JSON verbatim into SPIKE-02-FINDINGS.md under "signXml response".
-       * The signed output structure (CMS vs XMLDSig) must be confirmed here.
-       *
-       * FALLBACK (commonUtils legacy format):
-       * ws.send(JSON.stringify({
-       *   module: 'kz.gov.pki.knca.commonUtils',
-       *   method: 'signXml',
-       *   args: {
-       *     storageName: 'PKCS12',
-       *     keyType: 'SIGNATURE',
-       *     xmlToSign: xmlBase64,
-       *     tbsElementXPath: '',
-       *     signatureXPath: ''
-       *   }
-       * }))
+       * The response will contain the signed XML (likely plain XMLDSig in 1.x, base64 in 2.x).
+       * Copy the full RECEIVED entry verbatim into SPIKE-02-FINDINGS.md.
+       * Key things to confirm: output format (base64? plain XML?), CMS vs XMLDSig wrapper.
        */
     }
 
     // ── Sign CMS ──────────────────────────────────────────────────
     // Creates a CMS (PKCS#7) signature from base64-encoded data.
-    // attach=true embeds the original data in the signature envelope.
-    // attach=false creates a detached signature.
+    // attach=true embeds the original data in the envelope (attached CMS).
+    // attach=false = detached signature.
+    // Modern (≥2.0): object args
+    // Legacy (1.x):  positional array [storageName, keyType, base64ToSign, attach]
     function sendSignCms() {
       const rawData = document.getElementById('cms-input').value;
-      if (!rawData.trim()) {
-        alert('CMS input is empty.');
-        return;
-      }
+      if (!rawData.trim()) { alert('CMS input is empty.'); return; }
       const dataBase64 = toBase64(rawData);
 
-      sendMessage({
-        module: ACTIVE_MODULE,
-        method: 'createCMSSignatureFromBase64',
-        args: {
-          tokenType: 'PKCS12',
-          keyType: 'SIGNATURE',
-          base64ToSign: dataBase64,
-          attach: true  // true = attached CMS (data embedded); false = detached signature
-        }
-      });
+      if (LEGACY_MODE) {
+        sendMessage({
+          module: MODULE_LEGACY,
+          method: 'createCMSSignatureFromBase64',
+          args: ['PKCS12', 'SIGNATURE', dataBase64, true]
+          // ↑ ARRAY: [storageName, keyType, base64ToSign, attach]
+        });
+      } else {
+        sendMessage({
+          module: MODULE_BASICS,
+          method: 'createCMSSignatureFromBase64',
+          args: {
+            tokenType: 'PKCS12',
+            keyType: 'SIGNATURE',
+            base64ToSign: dataBase64,
+            attach: true
+          }
+        });
+      }
+    }
+
+    // ── Legacy probe: try BOTH arg formats back-to-back ──────────
+    // Sends getKeyInfo twice: once as array args, once as object args.
+    // Use this to quickly identify which format 1.x responds to.
+    function sendLegacyProbe() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        addLogEntry({ event: 'ERROR', timestamp: now(), message: 'Not connected.' });
+        return;
+      }
+      addLogEntry({ event: 'INFO', timestamp: now(),
+        message: '🔬 Legacy probe: sending getKeyInfo with ARRAY args via commonUtils...' });
+      const arr = { module: MODULE_LEGACY, method: 'getKeyInfo', args: ['PKCS12'] };
+      addLogEntry({ event: 'SENT', timestamp: now(), data: arr });
+      ws.send(JSON.stringify(arr));
+
+      // Small delay then send object format for comparison
+      setTimeout(() => {
+        addLogEntry({ event: 'INFO', timestamp: now(),
+          message: '🔬 Legacy probe: sending getKeyInfo with OBJECT args via commonUtils (for comparison)...' });
+        const obj = { module: MODULE_LEGACY, method: 'getKeyInfo', args: { storageName: 'PKCS12' } };
+        addLogEntry({ event: 'SENT', timestamp: now(), data: obj });
+        ws.send(JSON.stringify(obj));
+      }, 800);
     }
 
     // ── Initial log message ───────────────────────────────────────

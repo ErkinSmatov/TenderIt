@@ -1,116 +1,148 @@
 # SPIKE-01: goszakup GraphQL API Findings
 
-**Date:** <!-- Fill: e.g. 2026-06-10 -->
+**Date:** 2026-06-10
 **Token obtained:** 2026-06-09 (1-year validity)
 **Endpoint:** `https://ows.goszakup.gov.kz/v3/graphql`
-**Test tender number used:** <!-- Fill: the value of TEST_TENDER_NUMBER you used -->
+**Test tender number used:** `17163708-1`
 
-> **Wave 1 gate:** The `refBuyStatusId` value for "Принимаются заявки" (open for applications)
-> in the **refBuyStatusId Reference** section below MUST be filled before Wave 1 begins.
+> **Wave 1 gate:** The `refBuyStatusId` value for "open for applications" in the
+> **refBuyStatusId Reference** section below is **220**. Wave 1 is unblocked.
 > Phase 5 ARQ polling logic depends on this value to detect when a tender opens.
 
 ---
 
 ## Token Status
 
-<!-- Fill one of: -->
-- [ ] Confirmed working — HTTP 200 returned, TrdBuy data in response
-- [ ] Token rejected — HTTP 401 received (check GOSZAKUP_API_TOKEN env var)
-- [ ] Endpoint unreachable — network error
+- [x] Confirmed working — HTTP 200 returned, TrdBuy data in response
 
-**Notes:** <!-- Any auth errors, timeouts, or unusual behaviour observed -->
+**Notes:** Минимальный запрос `{ __typename }` ответил за 0.42 сек. TrdBuy-запрос с вложенными Lots — за ~70 сек (требует таймаут 90s). Таймаут уже поднят в тесте до 90.0.
 
 ---
 
 ## Real numberAnno Format
 
-**Raw value returned by API:** <!-- Fill: e.g. "123456" or "RU-2025-123456-000001-1" -->
+**Raw value returned by API:** `"17163708-1"`
 
-**Is it purely numeric?** <!-- Yes / No -->
-**Does it have a prefix?** <!-- Yes (describe) / No -->
-**Max length observed:** <!-- e.g. 12 characters -->
+**Is it purely numeric?** No
+**Pattern:** `{trd_buy_id}-{version_suffix}` — числовой ID тендера + дефис + числовой суффикс (обычно `1`)
+**Max length observed:** 12 characters (`17163708-1`)
 
 **Validation implication:**
-The current decision (03-CONTEXT.md §3) accepts any non-empty string ≤ 100 chars with whitespace stripped.
-If the format is more constrained, update this finding — Wave 1 may add a stricter validator.
+Текущее решение (03-CONTEXT.md §3): любая непустая строка ≤ 100 символов, strip whitespace — **подходит без изменений**. Regex не нужен: формат `{digits}-{digits}` подтверждён, но вариации возможны.
+
+**Важно для фронтенда:** пользователь должен вводить именно `17163708-1`, не просто `17163708`. Плейсхолдер в UI-SPEC (`"Например: 123456"`) нужно обновить на `"Например: 17163708-1"`.
 
 ---
 
 ## Date String Format
 
-Raw values from a real TrdBuy response:
+Raw values из реального TrdBuy-ответа:
 
 | Field | Raw string value | Format |
 |-------|-----------------|--------|
-| `startDate` | <!-- Fill: e.g. "2025-06-01T00:00:00.000Z" --> | <!-- ISO-8601 / Unix / Other --> |
-| `endDate` | <!-- Fill --> | <!-- --> |
-| `publishDate` | <!-- Fill --> | <!-- --> |
-| `lastUpdateDate` | <!-- Fill (if present) --> | <!-- --> |
+| `startDate` | `"2026-06-10 17:57:53"` | `YYYY-MM-DD HH:MM:SS` |
+| `endDate` | `"2026-06-12 17:57:53"` | `YYYY-MM-DD HH:MM:SS` |
+| `publishDate` | `"2026-06-10 17:57:53"` | `YYYY-MM-DD HH:MM:SS` |
+| `lastUpdateDate` | `"2026-06-10 17:54:54"` | `YYYY-MM-DD HH:MM:SS` |
 
-**Timezone:** <!-- UTC / Asia/Almaty (UTC+5) / Naive (no tz info) -->
+**Timezone:** Наивный (без суффикса tz). По контексту — Алматы UTC+5.
 
-**Parsing implication:**
-If dates are ISO-8601 strings with timezone, `datetime.fromisoformat()` (Python 3.11+) handles them.
-If they are naive (no tz suffix), a `+05:00` offset should be applied before storing as TIMESTAMPTZ.
-Document the exact format here so the Wave 1 Pydantic `@field_validator` is correct.
+**⚠ Критическое отличие от ожидаемого:**
+Даты — **НЕ ISO-8601**. Ожидался формат `"2026-06-10T00:00:00.000Z"`, пришёл `"2026-06-10 17:57:53"` (пробел вместо T, нет tz-суффикса).
+
+**Parsing implication для Wave 1 Pydantic-валидатора:**
+```python
+# В TenderCreate/TenderResponse: поля дат объявить как Optional[datetime]
+# Использовать @field_validator с явным парсингом:
+from datetime import datetime, timezone, timedelta
+
+ALMATY_TZ = timezone(timedelta(hours=5))
+
+@field_validator("start_date", "end_date", "publish_date", mode="before")
+@classmethod
+def parse_goszakup_date(cls, v):
+    if v is None:
+        return None
+    # Формат: "YYYY-MM-DD HH:MM:SS" (наивный, UTC+5)
+    dt = datetime.strptime(v, "%Y-%m-%d %H:%M:%S")
+    return dt.replace(tzinfo=ALMATY_TZ)
+```
 
 ---
 
 ## refBuyStatusId Reference
 
-> **THIS TABLE GATES WAVE 1.** Record all status values observed.
+> **GATE CLEARED.** Значение для "открытого" тендера: `refBuyStatusId = 220`
 
 | `refBuyStatusId` | `RefBuyStatus.nameRu` | `RefBuyStatus.code` | Meaning |
 |------------------|-----------------------|---------------------|---------|
-| <!-- e.g. 1 --> | <!-- e.g. "Принимаются заявки" --> | <!-- e.g. "ACCEPTING" --> | <!-- Open for applications — MARK THIS ROW --> |
-| | | | |
-| | | | |
+| **220** | **"Опубликовано (прием заявок)"** | **`PublishedOrderTaking`** | **← OPEN: прием заявок. Это значение Phase 5 опрашивает** |
+| 220 (Lot) | — | — | `refLotStatusId` для лота тоже 220 при открытом тендере |
 
-**Value for "Принимаются заявки" (open for applications):** `refBuyStatusId = ____`
+**Замечание:** В CONTEXT.md и документации портала это состояние называлось `"Принимаются заявки"`, фактическое `nameRu` — `"Опубликовано (прием заявок)"`. Оба описывают одно: тендер открыт для подачи заявок. Код `PublishedOrderTaking` — каноническое название.
 
-> This is the value Phase 5 ARQ polling will compare against `status_id` in the `tenders` table
-> to detect when a watched tender transitions to the open state and trigger notifications.
+**Для Phase 5 ARQ-поллинга:**
+```python
+OPEN_FOR_APPLICATIONS_STATUS_ID = 220  # "Опубликовано (прием заявок)" / PublishedOrderTaking
+```
 
-**How to find all status values:**
-- The tender you queried has one status. To find others, try tenders in different states,
-  or call `GET https://ows.goszakup.gov.kz/v3/ref/buy-statuses` if that endpoint exists.
-- Alternatively, introspect the `RefBuyStatus` type via GraphQL schema introspection.
+**Дополнительные статусы:** наблюдался только 220. Другие значения (завершён, отменён и т.д.) необходимо документировать при встрече.
+
+---
+
+## Nullable Fields
+
+**Обнаружены null-поля в реальном ответе:**
+
+| Поле | Значение | Примечание |
+|------|---------|-----------|
+| `customerNameRu` | `null` | Несмотря на наличие `customerBin`, имя заказчика отсутствует — поле Optional |
+| `customerNameKz` | `null` | Аналогично |
+| `nameKz` | заполнено | В данном тендере есть |
+
+**Implication для модели `Tender` в Wave 1:**
+`customer_name_ru`, `customer_name_kz` — `VARCHAR(500) NULL` (уже так в DDL из CONTEXT.md — всё верно).
 
 ---
 
 ## Redacted Sample Response
-
-> **PII redaction required before committing:**
-> Replace `customerBin` value with `"<REDACTED>"`.
-> Do not include any IIN, passport data, or personal names.
-> The API auth token must NEVER appear in this file.
 
 ```json
 {
   "data": {
     "TrdBuy": [
       {
-        "id": null,
-        "numberAnno": "<!-- Fill -->",
-        "nameRu": "<!-- Fill -->",
-        "nameKz": null,
-        "totalSum": null,
-        "countLots": null,
+        "id": 17163708,
+        "numberAnno": "17163708-1",
+        "nameRu": "Услуги по техническому обслуживанию пожарной сигнализации и речевого оповещения всех объектов университета",
+        "nameKz": "Университеттің барлық нысандарына техникалық қызмет көрсету өрт дабылы және сөйлеу құлақтандыру қызметтері",
+        "totalSum": 24180000,
+        "countLots": 1,
         "customerBin": "<REDACTED>",
-        "customerNameRu": "<!-- Fill -->",
+        "customerNameRu": null,
         "customerNameKz": null,
-        "refBuyStatusId": null,
+        "refBuyStatusId": 220,
         "RefBuyStatus": {
-          "id": null,
-          "nameRu": "<!-- Fill -->",
-          "nameKz": null,
-          "code": "<!-- Fill -->"
+          "id": 220,
+          "nameRu": "Опубликовано (прием заявок)",
+          "nameKz": "Жарияланды (өтінімді қабылдау)",
+          "code": "PublishedOrderTaking"
         },
-        "startDate": "<!-- Fill raw string -->",
-        "endDate": "<!-- Fill raw string -->",
-        "publishDate": "<!-- Fill raw string -->",
-        "lastUpdateDate": "<!-- Fill raw string if present -->",
-        "Lots": []
+        "startDate": "2026-06-10 17:57:53",
+        "endDate": "2026-06-12 17:57:53",
+        "publishDate": "2026-06-10 17:57:53",
+        "lastUpdateDate": "2026-06-10 17:54:54",
+        "Lots": [
+          {
+            "id": 42212976,
+            "lotNumber": "81638850-ОИ2",
+            "nameRu": "Услуги по техническому обслуживанию пожарной/охранной сигнализации/систем тушения/видеонаблюдения и аналогичного оборудования",
+            "nameKz": "Өрт/күзеттік хабарлағышты/өрт сөндіру/бейнебақылау жүйелерін және ұқаса жабдықтауды техникалық қамтамасыз ету бойынша қызмет көрсетулер",
+            "descriptionRu": "Услуги по техническому обслуживанию пожарной/охранной сигнализации/систем тушения/видеонаблюдения и аналогичного оборудования",
+            "amount": 24180000,
+            "refLotStatusId": 220
+          }
+        ]
       }
     ]
   }
@@ -121,18 +153,17 @@ Document the exact format here so the Wave 1 Pydantic `@field_validator` is corr
 
 ## Open Questions After Spike
 
-<!-- Fill any remaining unknowns after running the test -->
-
-- [ ] Are there additional `refBuyStatusId` values beyond what this tender showed?
-- [ ] Do dates use Kazakhstan local time (UTC+5) or UTC?
-- [ ] What is the typical `numberAnno` format observed in the wild?
+- [ ] Какие другие `refBuyStatusId` существуют (завершён, отменён, черновик)? Встречать по ходу работы.
+- [x] ~~Часовой пояс дат~~ — наивный формат `YYYY-MM-DD HH:MM:SS`, предположительно UTC+5 (Алматы).
+- [x] ~~Формат numberAnno~~ — `{id}-{suffix}`, например `17163708-1`.
+- [ ] `totalSum` — в ответе `integer`, в документации `Float`. Проверить с тендером где сумма дробная. Wave 1 хранит как `NUMERIC(18,2)` — безопасно.
 
 ---
 
 ## Sign-Off
 
-- [ ] All five sections above are filled
-- [ ] `refBuyStatusId` for "Принимаются заявки" is recorded
-- [ ] `customerBin` is redacted in the sample response
-- [ ] No auth token value appears anywhere in this file
-- [ ] Wave 1 is unblocked
+- [x] Все пять секций заполнены
+- [x] `refBuyStatusId = 220` для "Принимаются заявки" / "PublishedOrderTaking" записан
+- [x] `customerBin` заменён на `<REDACTED>`
+- [x] Токен нигде в файле не фигурирует
+- [x] Wave 1 разблокирован

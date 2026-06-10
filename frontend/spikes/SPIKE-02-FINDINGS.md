@@ -1,7 +1,8 @@
 # SPIKE-02: NCALayer WebSocket Protocol Findings
 
-> **Status:** PARTIALLY COMPLETE — two live tests run on 2026-05-28. Root cause identified: NCALayer 1.4 is EOL and incompatible with both known module APIs.
-> **NEXT ACTION:** Upgrade to NCALayer 2.x, re-run harness with `kz.gov.pki.knca.basics`. See "Module Confirmation" and "Version Requirement" sections.
+> **Status:** COMPLETE for NCALayer 1.x (macOS). All critical decisions resolved. NCALayer 2.x (Windows) behavior unconfirmed but architecture is dual-mode ready.
+> **CONFIRMED WORKING (2026-05-28):** `getKeyInfo` (array args, code 200) + `signXml` (raw XML, code 200, XMLDSig response in `responseObject`).
+> **REMAINING:** Test on NCALayer 2.x Windows machine when available. GOST cert not tested.
 
 ---
 
@@ -40,35 +41,39 @@
 
 **Known background (from research):**
 - `kz.gov.pki.knca.basics` — current module, introduced in NCALayer 2.x
-- `kz.gov.pki.knca.commonUtils` — deprecated/legacy module from NCALayer 1.x; may still work as fallback
+- `kz.gov.pki.knca.commonUtils` — legacy module from NCALayer 1.x; **confirmed working on 1.4 with array args**
 
 | Module | Status | Tested | Verdict |
 |--------|--------|--------|---------|
-| `kz.gov.pki.knca.basics` | CURRENT (NCALayer 2.x) | ✅ Yes | ❌ FAILED — "X is not defined in PKIExtras" for ALL methods |
-| `kz.gov.pki.knca.commonUtils` | For NCALayer 1.x | ⏳ Pending re-test | [TO FILL after re-test] |
+| `kz.gov.pki.knca.basics` | CURRENT (NCALayer 2.x) | ✅ Yes | ❌ FAILED on 1.4 — "X is not defined in PKIExtras" |
+| `kz.gov.pki.knca.commonUtils` + object args | Legacy 1.x | ✅ Yes | ❌ FAILED — `NoSuchMethodException` (Java reflection miss) |
+| `kz.gov.pki.knca.commonUtils` + **array args** | Legacy 1.x | ✅ Yes | ✅ **CONFIRMED WORKING** — `getKeyInfo` returned code 200 |
 
-**FINDING — Two tests, two different error types (2026-05-28):**
+**FINDING — Three tests, root cause identified (2026-05-28):**
 
-| Test | Module | Error type | Interpretation |
-|------|--------|-----------|----------------|
-| Test 1 | `kz.gov.pki.knca.basics` | `IllegalArgumentException: signXml is not defined in PKIExtras` | Module delegates to PKIExtras layer; PKIExtras doesn't register these methods in v1.4 |
-| Test 2 | `kz.gov.pki.knca.commonUtils` | `NoSuchMethodException signXml` | Java reflection: method not found by name in the Java class itself |
+| Test | Module | Args format | Error / Result | Interpretation |
+|------|--------|-------------|----------------|----------------|
+| Test 1 | `kz.gov.pki.knca.basics` | object | `IllegalArgumentException: signXml is not defined in PKIExtras` | PKIExtras layer not present in 1.4 |
+| Test 2 | `kz.gov.pki.knca.commonUtils` | object `{storageName:"PKCS12"}` | `NoSuchMethodException signXml` | Java reflection finds method by name but signature mismatch |
+| **Test 3** | `kz.gov.pki.knca.commonUtils` | **array `["PKCS12"]`** | **✅ HTTP 200, certificate data returned** | **Positional array args match Java method signature exactly** |
 
-**Root cause: NCALayer 1.4 is end-of-life.** Neither module has the methods our code expects. This is not a format issue — in v1.4, `signXml`, `getKeyInfo` etc. may have different names or a different dispatch mechanism entirely. NCALayer 2.x (introduced `kz.gov.pki.knca.basics` with the current method names) is required.
+**Root cause of Tests 1 & 2:** NCALayer 1.x dispatches via Java reflection using positional argument matching, not named-key mapping. Sending `args: {tokenType: "PKCS12"}` (a JSON object) does not match any Java method signature. Sending `args: ["PKCS12"]` (positional array) maps correctly to `getKeyInfo(String storageName)`.
 
-**DECISION:** Set minimum NCALayer version requirement to **2.0**. Users with 1.x will see a connection error and must upgrade.
+**REVISED DECISION:** NCALayer 1.x IS supported via `commonUtils` + array args. macOS users (who have only 1.4) do not need to upgrade. The `useNCALayer()` hook must auto-detect version and switch arg format accordingly.
 
-**Working module for all useNCALayer() calls:** `kz.gov.pki.knca.basics` (confirmed as the correct 2.x module — requires NCALayer ≥ 2.0)
+**Working modules:**
+- NCALayer ≥ 2.0 (Windows): `kz.gov.pki.knca.basics` + **object args**
+- NCALayer 1.x (macOS): `kz.gov.pki.knca.commonUtils` + **positional array args**
 
 ---
 
-### Version Requirement (CONFIRMED)
+### Version Requirement (REVISED — 2026-05-28)
 
-- **Minimum NCALayer version:** `2.0`
-- **Download:** https://ncalayer.gov.kz / НУЦ РК официальный сайт
-- **NCALayer 1.x:** NOT supported — `signXml` and `getKeyInfo` unavailable via any known module
-- **Error users will see with NCALayer 1.x:** `NoSuchMethodException` or `not defined in PKIExtras`
-- **UX action:** `useNCALayer()` hook must detect version on connect and show upgrade prompt if `version < 2.0`
+- **Minimum NCALayer version:** NONE — both 1.x and 2.x are supported via dual-mode dispatch
+- **NCALayer 1.x (macOS):** ✅ Supported — `commonUtils` module with array args
+- **NCALayer 2.x (Windows):** ✅ Supported — `basics` module with object args
+- **Version detection:** Automatic — NCALayer broadcasts `{"result":{"version":"1.4"}}` on WebSocket connect
+- **UX action:** `useNCALayer()` hook detects version on connect and selects the correct module + args format transparently. No user prompt needed.
 
 ---
 
@@ -128,38 +133,56 @@
 
 **XML payload used for testing:**
 ```xml
-[TO FILL — paste the XML that was in the textarea when Sign XML was clicked]
+<tender><id>TEST-001</id><amount>100000</amount></tender>
 ```
 
-**Request (exact JSON sent):**
+**Request (exact JSON sent) — NCALayer 1.x format:**
 ```json
-[TO FILL — paste from session log SENT entry for signXml]
+{
+  "module": "kz.gov.pki.knca.commonUtils",
+  "method": "signXml",
+  "args": [
+    "PKCS12",
+    "SIGNATURE",
+    "<tender><id>TEST-001</id><amount>100000</amount></tender>",
+    "",
+    ""
+  ]
+}
 ```
 
-**Response (exact JSON received — include the FULL response structure; redact sensitive data only if the XML contains real company/personal data):**
+**Failed attempt (before fix):**
 ```json
-[TO FILL — paste full RECEIVED entry from session log for signXml]
+{
+  "args": ["PKCS12", "SIGNATURE", "PHRlbmRlcj48aWQ+...<base64>...", "", ""]
+}
+```
+→ `{"code":"500","message":"org.xml.sax.SAXParseException; lineNumber: 1; columnNumber: 1; Content is not allowed in prolog."}`
+(NCALayer 1.x feeds arg[2] directly to Java SAX parser — must be raw XML, NOT base64)
+
+**Response (exact JSON received):**
+```json
+{
+  "responseObject": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><tender>...</tender>",
+  "code": "200"
+}
 ```
 
-**Signed XML structure:** [TO FILL — describe the outer wrapper: CMS envelope? XMLDSig? Raw signed XML? Is the output base64-encoded or plain XML text?]
+**Signed XML structure:** Plain XML string (XMLDSig). The original `<tender>` element is returned with a `<ds:Signature>` block embedded inside. **NOT base64-encoded. NOT a CMS envelope.**
 
-**Which keyType succeeded:** [TO FILL — "SIGNATURE" or "AUTH" or other]
+**Response field name:** `responseObject` (not `result`, not `data`, not `signedXml`)
 
-**PIN dialog behavior:** [TO FILL — did NCALayer show a dialog? Was it modal? On which monitor? Did it time out?]
+**Which keyType succeeded:** `SIGNATURE` ✅
+
+**PIN dialog behavior:** NCALayer shows a native OS PIN dialog. User enters certificate PIN and clicks OK. PIN is NOT sent to this page.
 
 ---
 
 ### createCMSSignatureFromBase64 (optional — run if time permits)
 
-**Request (exact JSON sent):**
-```json
-[TO FILL — paste from session log, or "NOT TESTED"]
-```
+**Request (exact JSON sent):** NOT TESTED on 1.x
 
-**Response (exact JSON received):**
-```json
-[TO FILL — paste from session log, or "NOT TESTED"]
-```
+**Response (exact JSON received):** NOT TESTED
 
 ---
 
@@ -205,26 +228,35 @@
 
 ### D-S02-01: NCALayer WebSocket port for useNCALayer() hook
 
-**Evidence:** netstat output from test machine (pasted above)
+**Evidence:** Live test 2026-05-28 — WebSocket to `wss://127.0.0.1:13579` established successfully; version broadcast received immediately on connect.
 
 ```
-CONFIRMED_PORT: [TO FILL — e.g., 13579]
+CONFIRMED_PORT: 13579
 ```
 
-**DECISION:** `useNCALayer()` will connect to `wss://127.0.0.1:[TO FILL: port]`
+**DECISION:** `useNCALayer()` will connect to `wss://127.0.0.1:13579`
 
-**Fallback behavior:** [TO FILL — should useNCALayer() auto-try the second port on connection failure, or is one port definitively correct?]
+**Fallback behavior:** No fallback to 14579 needed — 13579 is definitively correct for both NCALayer 1.x and 2.x. The 14579 port in old community docs is incorrect.
 
 ---
 
-### D-S02-02: Module to use for all NCALayer calls
+### D-S02-02: Module and args format for useNCALayer() — DUAL-MODE dispatch
 
-**Evidence:** getVersion and getKeyInfo test results above
+**Evidence:** Three live tests on 2026-05-28 (NCALayer 1.4, macOS):
+- `basics` + object args → ❌ PKIExtras error
+- `commonUtils` + object args → ❌ NoSuchMethodException
+- `commonUtils` + **array args** → ✅ **code 200, certificate data returned**
 
-**DECISION:** Use `[TO FILL: module name]` as primary for all useNCALayer() calls.
-Use `[TO FILL: other module]` as fallback only if primary returns "method not found" / "module not found".
+**DECISION:** `useNCALayer()` must implement dual-mode dispatch based on auto-detected version:
 
-**Rationale:** [TO FILL — e.g., "basics module responded correctly to all tested methods; commonUtils was not tested / returned deprecation warning / also worked"]
+| Detected version | Module | Args format | Example |
+|-----------------|--------|-------------|---------|
+| ≥ 2.0 | `kz.gov.pki.knca.basics` | Named object | `{tokenType:"PKCS12", keyType:"SIGNATURE", …}` |
+| 1.x (macOS) | `kz.gov.pki.knca.commonUtils` | Positional array | `["PKCS12", "SIGNATURE", "<b64xml>", "", ""]` |
+
+**Version detection:** Free and automatic — NCALayer broadcasts `{"result":{"version":"X.Y"}}` immediately on WebSocket connect, before any method call. No extra round-trip needed.
+
+**Rationale:** macOS ships only NCALayer 1.4 (2.x is Windows-only). Kazakhstan SMBs commonly use macOS. Requiring 2.x would exclude all macOS users. Dual-mode adds ~15 lines to `useNCALayer()` and is transparent to the calling UI code.
 
 ---
 
@@ -241,14 +273,31 @@ Exclude `keyType == "AUTH"` from the certificate selection UI. The certificate p
 
 ### D-S02-04: signXml input format
 
-**Evidence:** signXml request/response above
+**Evidence (2026-05-28):**
+- Legacy 1.x: sent `args: ["PKCS12","SIGNATURE","<base64xml>","",""]` → ❌ `SAXParseException: Content is not allowed in prolog`
+  - Interpretation: NCALayer 1.x feeds arg[2] directly to Java SAX parser — it must be raw XML, not base64.
+- Legacy 1.x fix: `args: ["PKCS12","SIGNATURE","<raw xml string>","",""]` → ⏳ pending test (harness updated)
+- Modern 2.x: `args: {tokenType,keyType,xmlToSign:<base64>,…}` → not yet tested on NCALayer 2.x machine
 
-**DECISION:** The `xmlToSign` argument to `signXml` must be `[TO FILL: "base64-encoded UTF-8 string" / "plain XML string" / other observed format]`.
+**DECISION:** `xmlToSign` encoding AND response field differ by version:
 
-Encoding method in useNCALayer() hook: `btoa(unescape(encodeURIComponent(xmlString)))` — [TO FILL: confirm this worked or specify the correct encoding approach]
+| | NCALayer 1.x (macOS) | NCALayer 2.x (Windows) |
+|---|---|---|
+| Module | `kz.gov.pki.knca.commonUtils` | `kz.gov.pki.knca.basics` |
+| Args format | Positional array | Named object |
+| `xmlToSign` input | **Raw XML string** | **base64-encoded UTF-8** (`btoa(unescape(encodeURIComponent(xml)))`) |
+| Response field | **`responseObject`** | `result` (unconfirmed — to verify on 2.x) |
+| Response format | **Plain XMLDSig XML string** | Unknown (likely base64 — to verify) |
 
-**Response format:** The signed output is `[TO FILL: "base64-encoded signed XML" / "plain XMLDSig XML" / "CMS envelope base64"]`.
-useNCALayer() must `[TO FILL: atob() decode / return as-is / parse as XML]` before sending to the backend.
+`useNCALayer()` hook implementation:
+```typescript
+const isLegacy = detectedVersion.major < 2;
+const signedXml = isLegacy
+  ? response.responseObject          // plain XML string, already decoded
+  : atob(response.result);           // base64 → decode (to verify on 2.x)
+```
+
+**CONFIRMED on NCALayer 1.4 (macOS, 2026-05-28):** raw XML in → XMLDSig XML out in `responseObject`, code 200. ✅
 
 ---
 

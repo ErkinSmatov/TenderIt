@@ -162,7 +162,7 @@ async def test_trdbuy_query_returns_tender():
     with the printed field values. The refBuyStatusId value for status "Принимаются заявки"
     (open for applications) GATES Wave 1.
     """
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=90.0) as client:
         response = await client.post(
             GRAPHQL_URL,
             json={

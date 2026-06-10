@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { api } from '@/lib/api'
 import CompanyProfileForm from '@/components/profile/CompanyProfileForm'
 
@@ -31,18 +30,21 @@ export default function ProfilePage() {
   }, [])
 
   return (
-    <div className="p-6 max-w-2xl">
-      <div className="mb-6">
-        <Link href="/dashboard" className="text-blue-600 text-sm hover:underline">
-          ← Личный кабинет
-        </Link>
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h1 className="text-xl font-semibold">Профиль компании</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Данные вашей организации для тендерных заявок
+        </p>
       </div>
 
-      <h1 className="text-2xl font-bold mb-6">Профиль компании</h1>
+      {loading && (
+        <p className="text-sm text-muted-foreground">Загрузка...</p>
+      )}
 
-      {loading && <p className="text-gray-500">Загрузка...</p>}
-
-      {error && <p className="text-red-500">{error}</p>}
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
 
       {!loading && !error && profile && (
         <CompanyProfileForm initialData={profile} />

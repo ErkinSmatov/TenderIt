@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.db import engine
-from app.routers import auth, company, health
+from app.routers import auth, company, health, tenders
 from app.routers.auth import limiter
 
 
@@ -40,6 +40,7 @@ def create_app() -> FastAPI:
     application.include_router(health.router, prefix="/health", tags=["health"])
     application.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     application.include_router(company.router, prefix="/api/company", tags=["company"])
+    application.include_router(tenders.router, prefix="/api", tags=["tenders"])
 
     return application
 

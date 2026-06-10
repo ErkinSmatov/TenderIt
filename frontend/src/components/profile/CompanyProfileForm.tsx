@@ -5,6 +5,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { api } from '@/lib/api'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert } from '@/components/ui/alert'
 
 const profileSchema = z.object({
   bin: z.string().regex(/^\d{12}$/, 'Введите 12 цифр'),
@@ -50,6 +55,7 @@ export default function CompanyProfileForm({ initialData }: CompanyProfileFormPr
 
   const onSubmit = async (data: ProfileFormValues) => {
     setApiError('')
+    setSavedAt(null)
     try {
       await api.put('/api/company/profile', data)
       setSavedAt(new Date())
@@ -64,70 +70,73 @@ export default function CompanyProfileForm({ initialData }: CompanyProfileFormPr
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 max-w-lg">
-      <div>
-        <label className="block text-sm font-medium mb-1" htmlFor="bin">
-          БИН организации
-        </label>
-        <input
-          id="bin"
-          type="text"
-          placeholder="12 цифр"
-          className="border rounded px-3 py-2 w-full font-mono"
-          {...register('bin')}
-        />
-        {errors.bin && (
-          <p className="text-red-500 text-sm mt-1">{errors.bin.message}</p>
-        )}
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Реквизиты организации</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="bin">БИН организации</Label>
+            <Input
+              id="bin"
+              type="text"
+              placeholder="12 цифр"
+              className="font-mono"
+              aria-invalid={!!errors.bin}
+              {...register('bin')}
+            />
+            {errors.bin && (
+              <p className="text-destructive text-xs">{errors.bin.message}</p>
+            )}
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1" htmlFor="company_name">
-          Наименование компании
-        </label>
-        <input
-          id="company_name"
-          type="text"
-          placeholder="ТОО / АО / ИП ..."
-          className="border rounded px-3 py-2 w-full"
-          {...register('company_name')}
-        />
-        {errors.company_name && (
-          <p className="text-red-500 text-sm mt-1">{errors.company_name.message}</p>
-        )}
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="company_name">Наименование компании</Label>
+            <Input
+              id="company_name"
+              type="text"
+              placeholder="ТОО / АО / ИП ..."
+              aria-invalid={!!errors.company_name}
+              {...register('company_name')}
+            />
+            {errors.company_name && (
+              <p className="text-destructive text-xs">{errors.company_name.message}</p>
+            )}
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1" htmlFor="legal_address">
-          Юридический адрес
-        </label>
-        <textarea
-          id="legal_address"
-          rows={3}
-          placeholder="г. Алматы, ул. ..."
-          className="border rounded px-3 py-2 w-full resize-none"
-          {...register('legal_address')}
-        />
-        {errors.legal_address && (
-          <p className="text-red-500 text-sm mt-1">{errors.legal_address.message}</p>
-        )}
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="legal_address">Юридический адрес</Label>
+            <textarea
+              id="legal_address"
+              rows={3}
+              placeholder="г. Алматы, ул. ..."
+              aria-invalid={!!errors.legal_address}
+              className="w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+              {...register('legal_address')}
+            />
+            {errors.legal_address && (
+              <p className="text-destructive text-xs">{errors.legal_address.message}</p>
+            )}
+          </div>
 
-      {apiError && (
-        <p className="text-red-500 text-sm">{apiError}</p>
-      )}
+          {apiError && (
+            <Alert className="text-destructive border-destructive/50 bg-destructive/10 text-xs py-2">
+              {apiError}
+            </Alert>
+          )}
 
-      {savedAt && (
-        <p className="text-green-600 text-sm">Профиль сохранён</p>
-      )}
+          {savedAt && (
+            <Alert className="text-sm border-primary/30 bg-primary/10 text-primary py-2">
+              Профиль сохранён
+            </Alert>
+          )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="bg-blue-600 text-white rounded px-4 py-2 disabled:opacity-50 self-start"
-      >
-        {isSubmitting ? 'Сохранение...' : 'Сохранить'}
-      </button>
-    </form>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Сохранение...' : 'Сохранить'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

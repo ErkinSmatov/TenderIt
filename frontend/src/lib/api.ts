@@ -35,6 +35,11 @@ async function apiFetch<T>(path: string, init?: RequestInit, didRetry = false): 
     throw new Error(err.detail ?? 'API error')
   }
 
+  // 204 No Content — DELETE watchlist and similar endpoints return no body
+  if (res.status === 204) {
+    return undefined as T
+  }
+
   return res.json() as Promise<T>
 }
 
@@ -44,4 +49,5 @@ export const api = {
     apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 }
