@@ -81,7 +81,10 @@
   3. User can set an expiry date on a document; the UI shows a warning indicator 14 days before and 7 days before the expiry date
   4. User can delete a document from the vault and it is removed from all future application drafts
   5. When a new application draft is created, the system automatically pre-attaches the company's current (non-expired) documents to the document list
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 04-01-PLAN.md — Wave 1: deps (minio, python-multipart) + config + MinIO service + Document model + schemas + compute_expiry_status + migration 0003 + test scaffold
+- [ ] 04-02-PLAN.md — Wave 2: 6 auth-gated routes (upload/list/attachable/url/patch/delete) + document_service CRUD + IDOR protection + MinIO-mock unit tests
+- [ ] 04-03-PLAN.md — Wave 3: /documents page + DocumentUploadForm + DocumentCard (expiry badges) + DocumentVault + uploadFile helper + Sidebar nav + human-verify
 **UI hint**: yes
 
 ### Phase 5: EDS Signing & Submission
@@ -123,7 +126,7 @@
 | 1. Spikes & Foundation | 5/5 | Complete   | 2026-05-28 |
 | 2. Auth & Company Profile | 0/5 | Not started | - |
 | 3. Tender Lookup | 0/4 | Planned | - |
-| 4. Document Vault | 0/0 | Not started | - |
+| 4. Document Vault | 0/3 | Planned | - |
 | 5. EDS Signing & Submission | 0/0 | Not started | - |
 | 6. Notifications | 0/0 | Not started | - |
 
@@ -147,11 +150,11 @@
 | SRCH-02 | Phase 3 | Unified Services API |
 | SRCH-03 | Phase 3 | |
 | SRCH-04 | Phase 3 | Watchlist |
-| DOCS-01 | Phase 4 | |
-| DOCS-02 | Phase 4 | |
-| DOCS-03 | Phase 4 | |
-| DOCS-04 | Phase 4 | |
-| DOCS-05 | Phase 4 | |
+| DOCS-01 | Phase 4 | Upload + MinIO + pre-signed URL |
+| DOCS-02 | Phase 4 | 5 категорий |
+| DOCS-03 | Phase 4 | expiry_status + badges |
+| DOCS-04 | Phase 4 | Delete (MinIO + БД) |
+| DOCS-05 | Phase 4 | GET /attachable |
 | SIGN-01 | Phase 5 | |
 | SIGN-02 | Phase 5 | |
 | SIGN-03 | Phase 5 | |
