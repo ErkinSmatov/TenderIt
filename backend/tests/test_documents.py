@@ -1,19 +1,26 @@
-"""Phase 4 Document Vault — test scaffold.
+"""Phase 4 Document Vault — integration tests.
 
 Wave 0: test_expiry_status_logic (pure unit, no DB/MinIO needed) — GREEN.
 Wave 1 tests (Plan 02): test_upload_*, test_delete_*, test_get_*, test_attachable_*
-  — stubs marked with pytest.mark.skip until Plan 02 implements the router.
+  — full implementation with MinIO mocks.
 
 Fixtures:
   authed  — function-scoped authenticated AsyncClient (user prefix "doctest")
   authed2 — second authenticated AsyncClient (user prefix "doctest2")
   Used by Wave 1 tests for IDOR and user-isolation testing.
+
+MinIO Mock Pattern:
+  patch("app.services.minio_service._minio_client") — patches the singleton at the
+  module level where it lives. The router imports _minio_client from minio_service,
+  so patching the source module affects all callers.
 """
 
 from __future__ import annotations
 
+import io
 import uuid
-from unittest.mock import AsyncMock, patch
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -56,6 +63,34 @@ async def authed2():
 
 
 # ---------------------------------------------------------------------------
+# Helper: upload a document with mocked MinIO
+# ---------------------------------------------------------------------------
+
+
+async def _upload_doc(
+    client: AsyncClient,
+    filename: str = "test.pdf",
+    category: str = "ustav",
+    expires_at: str | None = None,
+    content: bytes = b"fake pdf content",
+) -> dict:
+    """Upload a document and return the response body. Asserts 201."""
+    data: dict = {"category": category}
+    if expires_at is not None:
+        data["expires_at"] = expires_at
+    with patch("app.services.minio_service._minio_client") as mock_minio:
+        mock_minio.put_object.return_value = MagicMock()
+        mock_minio.bucket_exists.return_value = True
+        resp = await client.post(
+            "/api/documents",
+            data=data,
+            files={"file": (filename, io.BytesIO(content), "application/pdf")},
+        )
+    assert resp.status_code == 201, f"Upload failed: {resp.text}"
+    return resp.json()
+
+
+# ---------------------------------------------------------------------------
 # Wave 0: pure unit tests (no DB/MinIO) — GREEN
 # ---------------------------------------------------------------------------
 
@@ -70,8 +105,6 @@ def test_expiry_status_logic():
     - +5 days    → "warning_7"
     - -1 day     → "expired"
     """
-    from datetime import datetime, timedelta, timezone
-
     from app.services.document_service import compute_expiry_status
 
     now = datetime.now(timezone.utc)
@@ -84,61 +117,144 @@ def test_expiry_status_logic():
 
 
 # ---------------------------------------------------------------------------
-# Wave 1 stubs (Plan 02) — skip until router documents.py is implemented
+# Wave 1: router integration tests (Plan 02)
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="Plan 02: router not yet implemented")
+@pytest.mark.asyncio
 async def test_upload_success(authed):
     """DOCS-01: POST /api/documents → 201, DB record created, MinIO put_object called."""
-    # TODO Plan 02: mock _minio_client, post multipart form, assert 201 + body
-    pass
+    mock_result = MagicMock()
+    with patch("app.services.minio_service._minio_client") as mock_minio:
+        mock_minio.put_object.return_value = mock_result
+        mock_minio.bucket_exists.return_value = True
+
+        resp = await authed.post(
+            "/api/documents",
+            data={"category": "ustav"},
+            files={"file": ("test.pdf", io.BytesIO(b"fake pdf content"), "application/pdf")},
+        )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["category"] == "ustav"
+    assert body["file_name"] == "test.pdf"
+    assert "expiry_status" in body
+    assert body["expiry_status"] == "ok"
+    mock_minio.put_object.assert_called_once()
 
 
-@pytest.mark.skip(reason="Plan 02: router not yet implemented")
+@pytest.mark.asyncio
 async def test_upload_too_large(authed):
-    """DOCS-01: POST /api/documents with file > 20MB → 413."""
-    # TODO Plan 02: post 21MB file, assert 413
-    pass
+    """DOCS-01: POST /api/documents with file > 20MB → 413, put_object NOT called."""
+    large_content = b"x" * (21 * 1024 * 1024)  # 21 MB
+    with patch("app.services.minio_service._minio_client") as mock_minio:
+        resp = await authed.post(
+            "/api/documents",
+            data={"category": "other"},
+            files={"file": ("large.pdf", io.BytesIO(large_content), "application/pdf")},
+        )
+        mock_minio.put_object.assert_not_called()
+
+    assert resp.status_code == 413
 
 
-@pytest.mark.skip(reason="Plan 02: router not yet implemented")
+@pytest.mark.asyncio
 async def test_upload_invalid_category(authed):
     """DOCS-02: POST /api/documents with invalid category → 422."""
-    # TODO Plan 02: post invalid category, assert 422
-    pass
+    with patch("app.services.minio_service._minio_client"):
+        resp = await authed.post(
+            "/api/documents",
+            data={"category": "invalid_category_xyz"},
+            files={"file": ("test.pdf", io.BytesIO(b"data"), "application/pdf")},
+        )
+
+    assert resp.status_code == 422
 
 
-@pytest.mark.skip(reason="Plan 02: router not yet implemented")
+@pytest.mark.asyncio
 async def test_delete_document(authed):
-    """DOCS-04: DELETE /api/documents/{id} removes from DB and MinIO."""
-    # TODO Plan 02: upload, then delete, assert 204 + MinIO remove_object called
-    pass
+    """DOCS-04: DELETE /api/documents/{id} → 204, remove_object called, row gone."""
+    # Upload first
+    body = await _upload_doc(authed, filename="to_delete.pdf")
+    doc_id = body["id"]
+
+    # Delete
+    with patch("app.services.minio_service._minio_client") as mock_minio:
+        resp = await authed.delete(f"/api/documents/{doc_id}")
+        mock_minio.remove_object.assert_called_once()
+
+    assert resp.status_code == 204
+
+    # Verify gone: GET list should not include this doc
+    list_resp = await authed.get("/api/documents")
+    assert list_resp.status_code == 200
+    ids = [d["id"] for d in list_resp.json()]
+    assert doc_id not in ids
 
 
-@pytest.mark.skip(reason="Plan 02: router not yet implemented")
+@pytest.mark.asyncio
 async def test_delete_idor_protection(authed, authed2):
     """DOCS-04: User A cannot delete User B's document → 404."""
-    # TODO Plan 02: authed uploads, authed2 tries to delete, assert 404
-    pass
+    # authed uploads a document
+    body = await _upload_doc(authed, filename="owned.pdf")
+    doc_id = body["id"]
+
+    # authed2 tries to delete — must get 404
+    with patch("app.services.minio_service._minio_client") as mock_minio:
+        del_resp = await authed2.delete(f"/api/documents/{doc_id}")
+        mock_minio.remove_object.assert_not_called()
+
+    assert del_resp.status_code == 404
 
 
-@pytest.mark.skip(reason="Plan 02: router not yet implemented")
+@pytest.mark.asyncio
 async def test_attachable_excludes_expired(authed):
     """DOCS-05: GET /api/documents/attachable returns only non-expired documents."""
-    # TODO Plan 02: upload expired + valid, GET /attachable, assert expired excluded
-    pass
+    # Upload expired document
+    expired_at = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    await _upload_doc(authed, filename="expired.pdf", category="license", expires_at=expired_at)
+
+    # Upload valid document (no expiry)
+    await _upload_doc(authed, filename="valid.pdf", category="ustav")
+
+    resp = await authed.get("/api/documents/attachable")
+    assert resp.status_code == 200
+    names = [d["file_name"] for d in resp.json()]
+    assert "valid.pdf" in names
+    assert "expired.pdf" not in names
 
 
-@pytest.mark.skip(reason="Plan 02: router not yet implemented")
+@pytest.mark.asyncio
 async def test_get_presigned_url(authed):
     """DOCS-01: GET /api/documents/{id}/url → 200 with pre-signed URL."""
-    # TODO Plan 02: upload, get URL, assert 200 + url field present
-    pass
+    # Upload
+    body = await _upload_doc(authed, filename="url_test.pdf")
+    doc_id = body["id"]
+
+    # Get pre-signed URL
+    with patch("app.services.minio_service._minio_client") as mock_minio:
+        mock_minio.presigned_get_object.return_value = "https://minio.example.com/presigned"
+        url_resp = await authed.get(f"/api/documents/{doc_id}/url")
+
+    assert url_resp.status_code == 200
+    url_body = url_resp.json()
+    assert "url" in url_body
+    assert "expires_in" in url_body
+    assert url_body["expires_in"] == 900
+    assert url_body["url"] == "https://minio.example.com/presigned"
 
 
-@pytest.mark.skip(reason="Plan 02: router not yet implemented")
+@pytest.mark.asyncio
 async def test_url_idor_protection(authed, authed2):
     """DOCS-01: User A cannot get pre-signed URL for User B's document → 404."""
-    # TODO Plan 02: authed uploads, authed2 tries /url, assert 404
-    pass
+    # authed uploads
+    body = await _upload_doc(authed, filename="secret.pdf")
+    doc_id = body["id"]
+
+    # authed2 tries to get URL — must get 404
+    with patch("app.services.minio_service._minio_client") as mock_minio:
+        url_resp = await authed2.get(f"/api/documents/{doc_id}/url")
+        mock_minio.presigned_get_object.assert_not_called()
+
+    assert url_resp.status_code == 404
