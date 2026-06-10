@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,10 +10,13 @@ from app.config import settings
 from app.db import engine
 from app.routers import auth, company, health, tenders
 from app.routers.auth import limiter
+from app.services.minio_service import ensure_bucket_exists
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize MinIO bucket on startup (idempotent — safe on restart)
+    await asyncio.to_thread(ensure_bucket_exists)
     yield
     await engine.dispose()
 

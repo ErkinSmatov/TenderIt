@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "minioadmin"
     minio_secret_key: str = "minioadmin_dev"
+    minio_secure: bool = False
     debug: bool = True
     secret_key: str = "change-me-in-production"
     # Phase 2: JWT + email + frontend settings
