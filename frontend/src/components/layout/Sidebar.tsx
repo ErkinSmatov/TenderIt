@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Search, Building2, LogOut } from 'lucide-react'
+import { LayoutDashboard, Search, Building2, FileText, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutDashboard },
   { href: '/tenders', label: 'Тендеры', icon: Search },
   { href: '/profile', label: 'Профиль', icon: Building2 },
+  { href: '/documents', label: 'Документы', icon: FileText },
 ]
 
 export default function Sidebar() {

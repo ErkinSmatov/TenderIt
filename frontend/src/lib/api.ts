@@ -51,3 +51,45 @@ export const api = {
     apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 }
+
+/**
+ * uploadFile — multipart/form-data upload helper.
+ *
+ * NEVER set Content-Type manually — the browser must add the multipart boundary.
+ * Handles silent JWT refresh on 401, same as apiFetch.
+ */
+export async function uploadFile<T>(path: string, formData: FormData, didRetry = false): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    // No Content-Type header — browser sets multipart/form-data; boundary=... automatically
+    body: formData,
+  })
+
+  if (res.status === 401) {
+    if (didRetry) {
+      useAuthStore.getState().clearAuth()
+      throw new Error('Session expired')
+    }
+
+    // Attempt silent refresh
+    const refreshed = await fetch(`${BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (!refreshed.ok) {
+      useAuthStore.getState().clearAuth()
+      throw new Error('Session expired')
+    }
+
+    // Retry original request exactly once
+    return uploadFile<T>(path, formData, true)
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail ?? 'Upload error')
+  }
+
+  return res.json() as Promise<T>
+}
