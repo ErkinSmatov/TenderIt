@@ -82,9 +82,9 @@
   4. User can delete a document from the vault and it is removed from all future application drafts
   5. When a new application draft is created, the system automatically pre-attaches the company's current (non-expired) documents to the document list
 **Plans**: 3 plans
-- [ ] 04-01-PLAN.md — Wave 1: deps (minio, python-multipart) + config + MinIO service + Document model + schemas + compute_expiry_status + migration 0003 + test scaffold
-- [ ] 04-02-PLAN.md — Wave 2: 6 auth-gated routes (upload/list/attachable/url/patch/delete) + document_service CRUD + IDOR protection + MinIO-mock unit tests
-- [ ] 04-03-PLAN.md — Wave 3: /documents page + DocumentUploadForm + DocumentCard (expiry badges) + DocumentVault + uploadFile helper + Sidebar nav + human-verify
+- [x] 04-01-PLAN.md — Wave 1: deps (minio, python-multipart) + config + MinIO service + Document model + schemas + compute_expiry_status + migration 0003 + test scaffold
+- [x] 04-02-PLAN.md — Wave 2: 6 auth-gated routes (upload/list/attachable/url/patch/delete) + document_service CRUD + IDOR protection + MinIO-mock unit tests
+- [x] 04-03-PLAN.md — Wave 3: /documents page + DocumentUploadForm + DocumentCard (expiry badges) + DocumentVault + uploadFile helper + Sidebar nav + human-verify
 **UI hint**: yes
 
 ### Phase 5: EDS Signing & Submission
