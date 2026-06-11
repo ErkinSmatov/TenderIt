@@ -17,7 +17,7 @@ export type ExpiryStatus = 'ok' | 'warning_14' | 'warning_7' | 'expired'
 export interface DocumentResponse {
   id: number
   file_name: string
-  file_key: string
+  // file_key removed — internal MinIO storage path, not exposed by backend (CR-04)
   file_size: number
   mime_type: string
   category: DocumentCategory

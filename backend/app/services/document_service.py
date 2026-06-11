@@ -163,11 +163,12 @@ def to_response(doc: Document) -> "DocumentResponse":
     """
     from app.schemas.document import DocumentResponse
 
-    # Build dict from ORM object, then inject expiry_status (computed field)
+    # Build dict from ORM object, then inject expiry_status (computed field).
+    # file_key is intentionally excluded from the response dict (CR-04):
+    # it is an internal MinIO storage path and must not be exposed to clients.
     data = {
         "id": doc.id,
         "file_name": doc.file_name,
-        "file_key": doc.file_key,
         "file_size": doc.file_size,
         "mime_type": doc.mime_type,
         "category": doc.category,

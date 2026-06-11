@@ -40,13 +40,16 @@ class DocumentResponse(BaseModel):
 
     expiry_status is NOT in the ORM model — it is added by the service layer
     before returning the response (compute_expiry_status on expires_at).
+
+    file_key is intentionally excluded (CR-04): it is an internal MinIO storage path
+    and must not be exposed to clients. The /url endpoint provides presigned access.
     """
 
     model_config = {"from_attributes": True}
 
     id: int
     file_name: str
-    file_key: str
+    # file_key excluded — internal MinIO storage detail, not for clients (CR-04)
     file_size: int
     mime_type: str
     category: DocumentCategory
