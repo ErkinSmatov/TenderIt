@@ -73,7 +73,10 @@ export default function DocumentUploadForm() {
     formData.append('file', file)
     formData.append('category', data.category)
     if (data.expires_at) {
-      formData.append('expires_at', data.expires_at)
+      // WR-02: append time+timezone suffix so backend receives a proper ISO datetime
+      // (input type="date" produces "YYYY-MM-DD"; without suffix Pydantic parses it
+      // as a naive datetime which causes TypeError when compared with tz-aware values)
+      formData.append('expires_at', data.expires_at + 'T00:00:00Z')
     }
 
     try {
