@@ -29,9 +29,10 @@ MinIO Mock Note:
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as tz
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +56,18 @@ router = APIRouter()
 # 20 MB limit — validated before MinIO upload (T-04-02 mitigation)
 MAX_FILE_SIZE = 20 * 1024 * 1024
 
+# File type allowlist (CR-02 mitigation — T-04-02)
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"}
+ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "image/png",
+    "image/jpeg",
+}
+
 
 @router.post("/documents", status_code=201, response_model=DocumentResponse)
 async def upload_document(
@@ -66,43 +79,74 @@ async def upload_document(
 ) -> DocumentResponse:
     """Upload a document to the vault.
 
-    File is streamed directly to MinIO — NOT read into memory (Pitfall 4 mitigation).
-    Size is checked via UploadFile.size (populated by Starlette multipart parser)
-    BEFORE calling put_object (T-04-02 mitigation).
+    File content is read into memory with a streaming size check (CR-01: size guard
+    is always enforced regardless of whether the client sends Content-Length).
+    File type is validated against allowlist before upload (CR-02 mitigation).
+    MinIO upload is followed by DB insert with rollback on DB failure (WR-03).
 
     Object key: documents/{user_id}/{uuid4}{ext} — uuid4 prevents path traversal (T-04-03).
     user_id comes from JWT, never from request body (T-04-05 mitigation).
     """
-    # Validate size BEFORE MinIO upload (T-04-02: DoS mitigation)
-    if file.size is not None and file.size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="Файл превышает 20 МБ")
+    # CR-02: Validate file extension and MIME type against allowlist (415 Unsupported Media Type)
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=415, detail="Тип файла не поддерживается")
+    ct = file.content_type or ""
+    if ct not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=415, detail="Тип файла не поддерживается")
+
+    # WR-02: Normalize naive expires_at to UTC before any comparison or storage
+    if expires_at is not None and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=tz.utc)
+
+    # CR-01: Read stream in chunks to enforce 20 MB limit regardless of Content-Length header
+    # (T-04-02 mitigation — file.size may be None when client omits part Content-Length)
+    CHUNK = 64 * 1024
+    total = 0
+    chunks: list[bytes] = []
+    while True:
+        chunk = await file.read(CHUNK)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="Файл превышает 20 МБ")
+        chunks.append(chunk)
+
+    data = b"".join(chunks)
 
     # Build object key with uuid4 (T-04-03: path traversal mitigation)
-    ext = os.path.splitext(file.filename or "")[1].lower()
     object_key = f"documents/{current_user.id}/{uuid.uuid4()}{ext}"
 
-    # Stream to MinIO — do NOT call file.read() before this (Pitfall 4)
-    # file.file is a SpooledTemporaryFile seeked to position 0 by Starlette
-    # Access via module reference so unit tests can patch minio_service._minio_client
+    # Upload to MinIO; access via module reference so unit tests can patch _minio_client
     await asyncio.to_thread(
         minio_service._minio_client.put_object,
         minio_service.BUCKET_NAME,
         object_key,
-        file.file,
-        file.size if file.size is not None else -1,
-        file.content_type or "application/octet-stream",
+        io.BytesIO(data),
+        len(data),
+        ct,
     )
 
-    doc = await create_document(
-        db=db,
-        user_id=current_user.id,  # ALWAYS from JWT (T-04-05)
-        file_name=file.filename or "unknown",
-        file_key=object_key,
-        file_size=file.size or 0,
-        mime_type=file.content_type or "application/octet-stream",
-        category=category.value,
-        expires_at=expires_at,
-    )
+    # WR-03: Rollback MinIO object if DB insert fails to avoid orphaned files
+    try:
+        doc = await create_document(
+            db=db,
+            user_id=current_user.id,  # ALWAYS from JWT (T-04-05)
+            file_name=file.filename or "unknown",
+            file_key=object_key,
+            file_size=len(data),  # WR-05: actual bytes, never 0
+            mime_type=ct,
+            category=category.value,
+            expires_at=expires_at,
+        )
+    except Exception:
+        await asyncio.to_thread(
+            minio_service._minio_client.remove_object,
+            minio_service.BUCKET_NAME,
+            object_key,
+        )
+        raise HTTPException(status_code=500, detail="Ошибка при сохранении документа")
     return to_response(doc)
 
 
@@ -181,8 +225,14 @@ async def patch_document(
 
     if body.category is not None:
         doc.category = body.category.value
-    if body.expires_at is not None:
-        doc.expires_at = body.expires_at
+    # CR-03: use model_fields_set to distinguish omitted from explicit null —
+    # allows clearing expires_at by sending {"expires_at": null}
+    if "expires_at" in body.model_fields_set:
+        new_expires = body.expires_at
+        # WR-02: normalize naive datetime to UTC before storing
+        if new_expires is not None and new_expires.tzinfo is None:
+            new_expires = new_expires.replace(tzinfo=tz.utc)
+        doc.expires_at = new_expires
 
     await db.commit()
     await db.refresh(doc)
