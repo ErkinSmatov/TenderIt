@@ -28,11 +28,15 @@ def compute_expiry_status(expires_at: datetime | None) -> ExpiryStatus:
     """Compute document expiry status relative to current UTC time.
 
     Branches:
-      None       → "ok"   (permanent document, no expiry date)
-      days > 14  → "ok"
-      8 ≤ days ≤ 14 → "warning_14"
-      1 ≤ days ≤ 7  → "warning_7"
-      days < 0   → "expired"
+      None              → "ok"   (permanent document, no expiry date)
+      total_seconds ≤ 0 → "expired"  (WR-01: use total_seconds, not days, for expired boundary)
+      days < 7          → "warning_7"
+      days < 14         → "warning_14"
+      days ≥ 14         → "ok"
+
+    WR-01 fix: delta.days can be 0 for a document expiring in < 24h (but > 0 seconds),
+    causing it to show "warning_7" instead of "expired". total_seconds() is the correct
+    boundary check — it is negative the instant expires_at < now, regardless of sub-day values.
 
     Security note (T-04-07): uses datetime.now(timezone.utc) — tz-aware.
     Cannot compare tz-naive with tz-aware in Python 3.12+ (TypeError).
@@ -41,13 +45,13 @@ def compute_expiry_status(expires_at: datetime | None) -> ExpiryStatus:
     if expires_at is None:
         return "ok"
     now = datetime.now(timezone.utc)
-    delta = expires_at - now
-    days = delta.days
-    if days < 0:
+    diff = expires_at - now
+    if diff.total_seconds() <= 0:
         return "expired"
-    if days <= 7:
+    days = diff.days  # safe: total_seconds > 0 so days >= 0
+    if days < 7:
         return "warning_7"
-    if days <= 14:
+    if days < 14:
         return "warning_14"
     return "ok"
 
