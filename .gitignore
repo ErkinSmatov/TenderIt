@@ -23,6 +23,9 @@ frontend/out/
 .env.*.local
 # .env.example is intentionally committed
 
+# Claude Code internal data — worktrees, session cache, agent state
+.claude/
+
 # IDE
 .DS_Store
 .idea/
