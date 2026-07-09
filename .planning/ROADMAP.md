@@ -102,7 +102,12 @@
   7. Application status transitions: Черновик → Подписано → Ожидает открытия → Отправляется → Отправлено
   8. If submission fails, the application enters Ошибка status with the raw portal error message; the durable ARQ job retries for up to 30 minutes before marking final failure; signed XML is retained for manual download
   9. User can view the full history of all submitted applications with their current statuses
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 05-01-PLAN.md — Wave 1: migration 0004 + applications table + GoszakupPortalClient (login/submit) + Redis session/confirm helpers + application state machine + CRUD endpoints
+- [ ] 05-02-PLAN.md — Wave 1: useNCALayer() dual-mode hook + signing UI (status/cert/install) + Gamma-encryption (step 7) investigation
+- [ ] 05-03-PLAN.md — Wave 2: portal proxy steps 1-11 + /api/goszakup/* endpoints + application wizard (lot price → documents → NCALayer signing)
+- [ ] 05-04-PLAN.md — Wave 2: python-telegram-bot + ARQ worker (poll_watchlist cron + auto_submit) + Telegram webhook + 15-min confirm fallback
+- [ ] 05-05-PLAN.md — Wave 3: applications list + detail (30s polling) + status badges + error surface + Sidebar nav
 **UI hint**: yes
 
 ### Phase 6: Notifications
@@ -127,7 +132,7 @@
 | 2. Auth & Company Profile | 0/5 | Not started | - |
 | 3. Tender Lookup | 0/4 | Planned | - |
 | 4. Document Vault | 0/3 | Planned | - |
-| 5. EDS Signing & Submission | 0/0 | Not started | - |
+| 5. EDS Signing & Submission | 0/5 | Planned | - |
 | 6. Notifications | 0/0 | Not started | - |
 
 ---
