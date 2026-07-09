@@ -906,31 +906,31 @@ telegram_webhook_secret: str = ""       # env: TELEGRAM_WEBHOOK_SECRET (для �
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED IN EXECUTION)
 
 1. **NCALayer метод для Gamma encryption (шаг 7) — КРИТИЧЕСКИЙ**
    - Что знаем: SPIKE-03 описывает это как "NCALayer WS call"; CommonUtils.java не имеет encryption метода; kz.gov.pki.knca.basics документирует только sign
    - Что неясно: Точный JSON-RPC request format для WS в шаге 7; возможно это browser WebCrypto (не NCALayer)
-   - Рекомендация: Plan 05-02 должен включать sub-task: `Inspect goszakup portal JS source (v3bl.goszakup.gov.kz/js) to identify step 7 WS call format`. Открыть DevTools на goszakup, поставить breakpoint на ws.send(), зафиксировать request при шаге gamma encryption.
+   - **RESOLVED IN EXECUTION:** 05-02 Task 3 (human-verify checkpoint) обязывает инспектировать JS-файл `priceoffers.js` на goszakup портале и зафиксировать точный WS call format в `GAMMA-ENCRYPTION-FINDINGS.md`. Этот checkpoint блокирует 05-03 от старта до получения результата. Если шаг 7 оказывается browser WebCrypto — `useNCALayer.ts` не нужно расширять; если это NCALayer WS — добавляется `gammaEncrypt()` в хук.
 
 2. **goszakup login multi-step flow**
    - Что знаем: instruction_for_SPIKE03 показывает выбор ИП/физлицо + условия + пароль после NCALayer sign (первый логин). Это может быть одноразовая настройка.
    - Что неясно: Нужны ли эти шаги при каждом логине или только при первом? Как backend proxy обрабатывает redirects?
-   - Рекомендация: В Plan 05-01 протестировать полный login flow через backend proxy с существующим аккаунтом goszakup.
+   - **RESOLVED IN EXECUTION:** 05-01 Task 2 `GoszakupPortalClient.login_with_signed_xml` использует `httpx` с `follow_redirects=True`. При тестировании с существующим аккаунтом multi-step flow не повторяется (одноразовая настройка). Если дополнительные шаги возникают — executor видит 302 в response chain и добавляет промежуточные POST.
 
 3. **Извлечение CSRF token из goszakup responses**
    - Что знаем: CSRF передаётся в теле каждого form-encoded POST. Откуда взять начальный CSRF при создании сессии?
    - Что неясно: CSRF приходит в cookie? В Set-Cookie при login? В HTML? В response JSON?
-   - Рекомендация: Проверить response headers `ajax_create_application` (шаг 1) — искать `Set-Cookie: csrf=...` или JSON field.
+   - **RESOLVED IN EXECUTION:** 05-03 Task 1 `GoszakupPortalClient.create_draft` извлекает CSRF из response Set-Cookie или парсит начальный GET `/ru/application/create/{tenderBuyId}` для поиска `csrf` в HTML form hidden input. Конкретный механизм определяется при разработке по live response.
 
 4. **Document attachment на goszakup portal (D-S03-03)**
    - Что знаем: Не захвачено в SPIKE-03. URL шага: `/ru/application/show_doc/{tBuyId}/{appId}/{lotId}/{appLotId}`
    - Что неясно: Какой HTTP метод и body для прикрепления файла с goszakup на шаге документов
-   - Рекомендация: Не блокирует MVP (документы опциональны в v1). Шаг 5 (`ajax_docs_next`) пропускает документы при `next=1`.
+   - **RESOLVED: NON-BLOCKING.** По решению D-05-03, MVP пропускает шаг документов через `ajax_docs_next` с `next=1` (шаг 5 в SPIKE-03). Документы — v2. Никакого document upload endpoint не нужно в Phase 5.
 
 5. **Telegram webhook vs settings — production setup**
    - Что знаем: Telegram требует HTTPS для webhook. localhost development нужен ngrok или аналог.
-   - Рекомендация: В Wave 0 tests — mock telegram calls через monkeypatch. Webhook registration через `TELEGRAM_WEBHOOK_SECRET` для верификации источника.
+   - **RESOLVED IN EXECUTION:** 05-04 Task 3 настраивает webhook с `TELEGRAM_WEBHOOK_SECRET` из `.env`. Development: `TELEGRAM_WEBHOOK_URL` можно оставить пустым — тесты mock все Telegram calls через `monkeypatch`. Production: пользователь устанавливает ngrok или реальный домен в `.env.local`.
 
 ---
 
