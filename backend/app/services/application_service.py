@@ -22,6 +22,16 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
+def _utcnow() -> datetime:
+    """Return current UTC time as a NAIVE datetime (no tzinfo).
+
+    PostgreSQL TIMESTAMP WITHOUT TIME ZONE columns require naive datetimes.
+    datetime.now(timezone.utc).replace(tzinfo=None) is the recommended approach
+    (datetime.utcnow() is deprecated in Python 3.12).
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 from app.models.application import Application
 from app.schemas.application import ApplicationCreate, ApplicationResponse
 
@@ -106,8 +116,8 @@ async def mark_ready(
     app.status = "waiting"
     app.goszakup_application_id = goszakup_application_id
     app.goszakup_tender_buy_id = goszakup_tender_buy_id
-    app.ready_at = datetime.now(timezone.utc)
-    app.updated_at = datetime.now(timezone.utc)
+    app.ready_at = _utcnow()
+    app.updated_at = _utcnow()
     await db.commit()
     await db.refresh(app)
     return app
@@ -130,7 +140,7 @@ async def mark_submitting(db: AsyncSession, app: Application) -> Application:
     Called when ARQ worker detects tender status_id == 220 and starts auto-submit.
     """
     app.status = "submitting"
-    app.updated_at = datetime.now(timezone.utc)
+    app.updated_at = _utcnow()
     await db.commit()
     await db.refresh(app)
     return app
@@ -143,8 +153,8 @@ async def mark_submitted(db: AsyncSession, app: Application) -> Application:
     Sets submitted_at to current UTC time.
     """
     app.status = "submitted"
-    app.submitted_at = datetime.now(timezone.utc)
-    app.updated_at = datetime.now(timezone.utc)
+    app.submitted_at = _utcnow()
+    app.updated_at = _utcnow()
     await db.commit()
     await db.refresh(app)
     return app
@@ -160,7 +170,7 @@ async def mark_error(
     """
     app.status = "error"
     app.error_message = message
-    app.updated_at = datetime.now(timezone.utc)
+    app.updated_at = _utcnow()
     await db.commit()
     await db.refresh(app)
     return app
@@ -173,7 +183,7 @@ async def increment_retry(db: AsyncSession, app: Application) -> Application:
     (retry up to 30 min with exponential back-off — D-05-05).
     """
     app.retry_count += 1
-    app.updated_at = datetime.now(timezone.utc)
+    app.updated_at = _utcnow()
     await db.commit()
     await db.refresh(app)
     return app
