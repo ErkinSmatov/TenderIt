@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     # Empty default so tests run without a real token (respx mocks replace HTTP layer).
     goszakup_api_token: str = ""
 
+    # Phase 5: Telegram bot for tender-open notifications + confirm flow (D-05-06)
+    # Empty defaults so tests run without a real bot token.
+    telegram_bot_token: str = ""
+    webhook_base_url: str = "http://localhost:8000"
+    telegram_webhook_secret: str = ""
+
     @model_validator(mode="after")
     def validate_secrets(self) -> "Settings":
         """WR-04: Fail at startup if default placeholder secrets are used in production.
