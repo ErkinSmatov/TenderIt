@@ -41,10 +41,10 @@
 
 - [ ] **APPL-01**: Пользователь может создать черновик заявки на выбранный тендер
 - [ ] **APPL-02**: Пользователь может просмотреть список документов, которые будут включены в заявку, до подписания
-- [ ] **APPL-03**: После подписания система автоматически отправляет заявку на портал через API
-- [ ] **APPL-04**: Пользователь видит статус заявки: Черновик → Подписано → Отправляется → Отправлено / Ошибка
-- [ ] **APPL-05**: Пользователь видит историю всех поданных заявок
-- [ ] **APPL-06**: Система уведомляет пользователя в UI, если автоматическая отправка завершилась ошибкой, с объяснением причины
+- [x] **APPL-03**: После подписания система автоматически отправляет заявку на портал через API
+- [x] **APPL-04**: Пользователь видит статус заявки: Черновик → Подписано → Отправляется → Отправлено / Ошибка
+- [x] **APPL-05**: Пользователь видит историю всех поданных заявок
+- [x] **APPL-06**: Система уведомляет пользователя в UI, если автоматическая отправка завершилась ошибкой, с объяснением причины
 - [x] **APPL-07**: Система периодически опрашивает goszakup API и отслеживает статус каждого тендера в watchlist (ARQ polling job)
 - [x] **APPL-08**: Когда тендер переходит в статус «открыт для подачи заявок», система немедленно отправляет уведомление пользователю в Telegram/WhatsApp: «Тендер №{ID} открыт. Подаём заявку? [Да] [Нет]»
 - [x] **APPL-09**: Если пользователь нажал «Да» — заявка подаётся автоматически; если «Нет» — заявка отменяется; если ответа нет в течение 15 минут — заявка подаётся автоматически (fallback)
@@ -122,10 +122,10 @@
 | SIGN-05 | Phase 5 — EDS Signing & Submission | Pending |
 | APPL-01 | Phase 5 — EDS Signing & Submission | Pending |
 | APPL-02 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-03 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-04 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-05 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-06 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-03 | Phase 5 — EDS Signing & Submission | Complete |
+| APPL-04 | Phase 5 — EDS Signing & Submission | Complete |
+| APPL-05 | Phase 5 — EDS Signing & Submission | Complete |
+| APPL-06 | Phase 5 — EDS Signing & Submission | Complete |
 | APPL-07 | Phase 5 — EDS Signing & Submission | Complete |
 | APPL-08 | Phase 5 — EDS Signing & Submission | Complete |
 | APPL-09 | Phase 5 — EDS Signing & Submission | Complete |

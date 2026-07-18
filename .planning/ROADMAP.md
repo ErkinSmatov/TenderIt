@@ -105,7 +105,7 @@
 **Plans**: 5 plans
 - [x] 05-01-PLAN.md — Wave 1: migration 0004 + applications table + GoszakupPortalClient (login/submit) + Redis session/confirm helpers + application state machine + CRUD endpoints
 - [x] 05-02-PLAN.md — Wave 1: useNCALayer() dual-mode hook + signing UI (status/cert/install) + Gamma-encryption (step 7) investigation
-- [ ] 05-03-PLAN.md — Wave 2: portal proxy steps 1-11 + /api/goszakup/* endpoints + application wizard (lot price → documents → NCALayer signing)
+- [x] 05-03-PLAN.md — Wave 2: portal proxy steps 1-11 + /api/goszakup/* endpoints + application wizard (lot price → documents → NCALayer signing)
 - [x] 05-04-PLAN.md — Wave 2: python-telegram-bot + ARQ worker (poll_watchlist cron + auto_submit) + Telegram webhook + 15-min confirm fallback
 - [ ] 05-05-PLAN.md — Wave 3: applications list + detail (30s polling) + status badges + error surface + Sidebar nav
 **UI hint**: yes
