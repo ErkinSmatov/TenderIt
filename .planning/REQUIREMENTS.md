@@ -39,8 +39,8 @@
 
 ### Application Submission (APPL)
 
-- [ ] **APPL-01**: Пользователь может создать черновик заявки на выбранный тендер
-- [ ] **APPL-02**: Пользователь может просмотреть список документов, которые будут включены в заявку, до подписания
+- [x] **APPL-01**: Пользователь может создать черновик заявки на выбранный тендер
+- [x] **APPL-02**: Пользователь может просмотреть список документов, которые будут включены в заявку, до подписания
 - [x] **APPL-03**: После подписания система автоматически отправляет заявку на портал через API
 - [x] **APPL-04**: Пользователь видит статус заявки: Черновик → Подписано → Отправляется → Отправлено / Ошибка
 - [x] **APPL-05**: Пользователь видит историю всех поданных заявок
@@ -120,8 +120,8 @@
 | SIGN-03 | Phase 5 — EDS Signing & Submission | Pending |
 | SIGN-04 | Phase 5 — EDS Signing & Submission | Pending |
 | SIGN-05 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-01 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-02 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-01 | Phase 5 — EDS Signing & Submission | Complete |
+| APPL-02 | Phase 5 — EDS Signing & Submission | Complete |
 | APPL-03 | Phase 5 — EDS Signing & Submission | Complete |
 | APPL-04 | Phase 5 — EDS Signing & Submission | Complete |
 | APPL-05 | Phase 5 — EDS Signing & Submission | Complete |

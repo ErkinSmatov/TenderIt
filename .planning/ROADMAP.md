@@ -107,7 +107,7 @@
 - [x] 05-02-PLAN.md — Wave 1: useNCALayer() dual-mode hook + signing UI (status/cert/install) + Gamma-encryption (step 7) investigation
 - [x] 05-03-PLAN.md — Wave 2: portal proxy steps 1-11 + /api/goszakup/* endpoints + application wizard (lot price → documents → NCALayer signing)
 - [x] 05-04-PLAN.md — Wave 2: python-telegram-bot + ARQ worker (poll_watchlist cron + auto_submit) + Telegram webhook + 15-min confirm fallback
-- [ ] 05-05-PLAN.md — Wave 3: applications list + detail (30s polling) + status badges + error surface + Sidebar nav
+- [x] 05-05-PLAN.md — Wave 3: applications list + detail (30s polling) + status badges + error surface + Sidebar nav
 **UI hint**: yes
 
 ### Phase 6: Notifications
