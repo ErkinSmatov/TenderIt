@@ -45,9 +45,9 @@
 - [ ] **APPL-04**: Пользователь видит статус заявки: Черновик → Подписано → Отправляется → Отправлено / Ошибка
 - [ ] **APPL-05**: Пользователь видит историю всех поданных заявок
 - [ ] **APPL-06**: Система уведомляет пользователя в UI, если автоматическая отправка завершилась ошибкой, с объяснением причины
-- [ ] **APPL-07**: Система периодически опрашивает goszakup API и отслеживает статус каждого тендера в watchlist (ARQ polling job)
-- [ ] **APPL-08**: Когда тендер переходит в статус «открыт для подачи заявок», система немедленно отправляет уведомление пользователю в Telegram/WhatsApp: «Тендер №{ID} открыт. Подаём заявку? [Да] [Нет]»
-- [ ] **APPL-09**: Если пользователь нажал «Да» — заявка подаётся автоматически; если «Нет» — заявка отменяется; если ответа нет в течение 15 минут — заявка подаётся автоматически (fallback)
+- [x] **APPL-07**: Система периодически опрашивает goszakup API и отслеживает статус каждого тендера в watchlist (ARQ polling job)
+- [x] **APPL-08**: Когда тендер переходит в статус «открыт для подачи заявок», система немедленно отправляет уведомление пользователю в Telegram/WhatsApp: «Тендер №{ID} открыт. Подаём заявку? [Да] [Нет]»
+- [x] **APPL-09**: Если пользователь нажал «Да» — заявка подаётся автоматически; если «Нет» — заявка отменяется; если ответа нет в течение 15 минут — заявка подаётся автоматически (fallback)
 
 ### Notifications (NOTIF)
 
@@ -126,9 +126,9 @@
 | APPL-04 | Phase 5 — EDS Signing & Submission | Pending |
 | APPL-05 | Phase 5 — EDS Signing & Submission | Pending |
 | APPL-06 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-07 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-08 | Phase 5 — EDS Signing & Submission | Pending |
-| APPL-09 | Phase 5 — EDS Signing & Submission | Pending |
+| APPL-07 | Phase 5 — EDS Signing & Submission | Complete |
+| APPL-08 | Phase 5 — EDS Signing & Submission | Complete |
+| APPL-09 | Phase 5 — EDS Signing & Submission | Complete |
 | NOTIF-04 | Phase 6 — Notifications | Pending |
 | NOTIF-05 | Phase 6 — Notifications | Pending |
 | NOTIF-06 | Phase 6 — Notifications | Pending |
