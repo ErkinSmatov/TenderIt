@@ -1,6 +1,8 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
+from arq.connections import ArqRedis, RedisSettings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -10,15 +12,43 @@ from app.config import settings
 from app.db import engine
 from app.routers import auth, company, documents, health, tenders
 from app.routers import applications, goszakup_proxy
+from app.routers import telegram_webhook
 from app.routers.auth import limiter
 from app.services.minio_service import ensure_bucket_exists
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize MinIO bucket on startup (idempotent — safe on restart)
     await asyncio.to_thread(ensure_bucket_exists)
+
+    # Initialize ARQ Redis pool for enqueue_job in the webhook handler
+    arq_redis: ArqRedis = await ArqRedis.create(
+        RedisSettings.from_dsn(settings.redis_url)
+    )
+    app.state.arq_redis = arq_redis
+
+    # Register Telegram webhook — only when bot token is configured (T-05-31)
+    if settings.telegram_bot_token:
+        try:
+            import telegram
+
+            async with telegram.Bot(settings.telegram_bot_token) as bot:
+                webhook_url = f"{settings.webhook_base_url}/api/telegram/webhook"
+                await bot.set_webhook(
+                    url=webhook_url,
+                    secret_token=settings.telegram_webhook_secret,
+                )
+                logger.info("Telegram set_webhook registered: %s", webhook_url)
+        except Exception as exc:
+            # Non-fatal: app still works without Telegram if token is wrong
+            logger.warning("Telegram set_webhook failed: %s", exc)
+
     yield
+
+    await arq_redis.close()
     await engine.dispose()
 
 
@@ -49,6 +79,7 @@ def create_app() -> FastAPI:
     application.include_router(documents.router, prefix="/api", tags=["documents"])
     application.include_router(applications.router, prefix="/api", tags=["applications"])
     application.include_router(goszakup_proxy.router, prefix="/api/goszakup", tags=["goszakup-proxy"])
+    application.include_router(telegram_webhook.router, prefix="/api", tags=["telegram"])
 
     return application
 
