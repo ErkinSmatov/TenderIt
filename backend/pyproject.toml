@@ -25,6 +25,7 @@ dependencies = [
   "resend==2.30.1",
   "minio>=7.2.14",
   "python-multipart>=0.0.9",
+  "python-telegram-bot==22.8",
 ]
 
 [project.optional-dependencies]
