@@ -137,8 +137,8 @@
   5. When Phase 6 telegram_chat_id is available, user receives Telegram card per match with "Участвуем / Пропустить" buttons; "Участвуем" calls application_service.create() entering the Phase 5 pipeline
   6. Sidebar shows a link to the Telegram bot (t.me/<botname>)
 **Plans**: 6 plans
-- [ ] 07-01-PLAN.md — Wave 1: migrations 0005-0007 + extend Tender model + ClientFilter + TenderMatch ORM models + Pydantic schemas
-- [ ] 07-02-PLAN.md — Wave 1: goszakup batch fetch (fetch_tenders_batch) + poll_goszakup_discovery ARQ cron task
+- [x] 07-01-PLAN.md — Wave 1: migrations 0005-0007 + extend Tender model + ClientFilter + TenderMatch ORM models + Pydantic schemas
+- [x] 07-02-PLAN.md — Wave 1: goszakup batch fetch (fetch_tenders_batch) + poll_goszakup_discovery ARQ cron task
 - [ ] 07-03-PLAN.md — Wave 2: matching_service + run_matching ARQ task + worker_settings extension + discovery CRUD router + main.py
 - [ ] 07-04-PLAN.md — Wave 2: create_discovery_draft + send_discovery_notification + disc:* Telegram webhook handlers
 - [ ] 07-05-PLAN.md — Wave 3: /discovery feed + /discovery-filters form + TenderMatchCard + StatusBadge + Sidebar + middleware
