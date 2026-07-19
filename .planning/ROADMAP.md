@@ -16,6 +16,7 @@
 - [ ] **Phase 4: Document Vault** — Users can store, categorise, and track expiry of company documents
 - [ ] **Phase 5: EDS Signing & Submission** — Users can sign and submit applications via NCALayer
 - [ ] **Phase 6: Notifications** — Users receive Telegram and WhatsApp alerts for matching new tenders
+- [ ] **Phase 7: Discovery & Matching** — Users configure filters; system auto-matches and notifies via Telegram
 
 ---
 
@@ -122,6 +123,28 @@
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 7: Discovery & Matching
+**Goal**: Users can configure keyword/region/category filters; the system periodically fetches new tenders from goszakup, matches them against each user's filters, and notifies via the existing Telegram bot — user clicks "Участвуем" to enter the Phase 5 submission pipeline.
+**Mode:** mvp
+**Depends on**: Phase 2, Phase 5 (application_service); Phase 6 (telegram_chat_id for notifications — Telegram module built but inactive until Phase 6 provides /start linkage)
+**Parallel with**: Phase 6 (independent backend workstream)
+**Requirements**: DISC-01, DISC-02, DISC-03, DISC-04, DISC-05, DISC-06
+**Success Criteria** (what must be TRUE):
+  1. User can create and update filter rules (keywords, СПГЗ codes, region, min/max amount) via UI
+  2. ARQ worker polls goszakup batch API every 15 minutes and upserts new/changed tenders to local DB
+  3. Matching worker runs after each poll and creates tender_match records for each user whose filters hit a new tender
+  4. User sees a "Подборка" feed of matched tenders with status (новый / пропущен / участвуем)
+  5. When Phase 6 telegram_chat_id is available, user receives Telegram card per match with "Участвуем / Пропустить" buttons; "Участвуем" calls application_service.create() entering the Phase 5 pipeline
+  6. Sidebar shows a link to the Telegram bot (t.me/<botname>)
+**Plans**: 6 plans
+- [ ] 07-01-PLAN.md — Wave 1: migrations 0005-0007 + extend Tender model + ClientFilter + TenderMatch ORM models + Pydantic schemas
+- [ ] 07-02-PLAN.md — Wave 1: goszakup batch fetch (fetch_tenders_batch) + poll_goszakup_discovery ARQ cron task
+- [ ] 07-03-PLAN.md — Wave 2: matching_service + run_matching ARQ task + worker_settings extension + discovery CRUD router + main.py
+- [ ] 07-04-PLAN.md — Wave 2: create_discovery_draft + send_discovery_notification + disc:* Telegram webhook handlers
+- [ ] 07-05-PLAN.md — Wave 3: /discovery feed + /discovery-filters form + TenderMatchCard + StatusBadge + Sidebar + middleware
+- [ ] 07-06-PLAN.md — Wave 4: human verification checkpoint
+**UI hint**: yes
+
 ---
 
 ## Progress Table
@@ -134,6 +157,7 @@
 | 4. Document Vault | 0/3 | Planned | - |
 | 5. EDS Signing & Submission | 3/5 | In Progress|  |
 | 6. Notifications | 0/0 | Not started | - |
+| 7. Discovery & Matching | 0/6 | Planned | - |
 
 ---
 
@@ -165,18 +189,26 @@
 | SIGN-03 | Phase 5 | |
 | SIGN-04 | Phase 5 | |
 | SIGN-05 | Phase 5 | |
-| APPL-01 | Phase 5 | |
-| APPL-02 | Phase 5 | |
-| APPL-03 | Phase 5 | |
-| APPL-04 | Phase 5 | |
-| APPL-05 | Phase 5 | |
-| APPL-06 | Phase 5 | |
-| APPL-07 | Phase 5 | Status polling ARQ |
-| APPL-08 | Phase 5 | Notify on open |
-| APPL-09 | Phase 5 | Auto-submit + confirm |
+| APPL-01 | Phase 5 | Complete |
+| APPL-02 | Phase 5 | Complete |
+| APPL-03 | Phase 5 | Complete |
+| APPL-04 | Phase 5 | Complete |
+| APPL-05 | Phase 5 | Complete |
+| APPL-06 | Phase 5 | Complete |
+| APPL-07 | Phase 5 | Complete |
+| APPL-08 | Phase 5 | Complete |
+| APPL-09 | Phase 5 | Complete |
 | NOTIF-04 | Phase 6 | Telegram connect |
 | NOTIF-05 | Phase 6 | WhatsApp connect |
 | NOTIF-06 | Phase 6 | Watchlist mgmt |
+| DISC-01 | Phase 7 | client_filters CRUD (07-01, 07-03) |
+| DISC-02 | Phase 7 | ARQ batch poll 15min (07-02, 07-03) |
+| DISC-03 | Phase 7 | run_matching + matching_service (07-03) |
+| DISC-04 | Phase 7 | /discovery feed + TenderMatchCard (07-03, 07-05) |
+| DISC-05 | Phase 7 | Telegram disc:* + create_discovery_draft (07-04) |
+| DISC-06 | Phase 7 | Sidebar Telegram bot link (07-05) |
 
-**Total mapped: 36/36**
-*(SPIKE-04, SRCH-05/06/07, NOTIF-01/02/03 → v2)*
+**Total mapped: 42/42**
+*(SPIKE-04, SRCH-05/06/07, NOTIF-01/02/03 → moved to v2)*
+
+*Traceability updated 2026-07-19 — Phase 7 Discovery & Matching planned (6 plans, 4 waves)*
