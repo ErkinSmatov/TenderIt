@@ -760,22 +760,21 @@ Rationale:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED via execution-time verification in 07-02 Task 1 STEP 1)
 
-1. **What is the exact СПГЗ code field name in goszakup GraphQL Lots?**
+All three questions below are resolved at the start of plan 07-02 Task 1 via mandatory GraphQL introspection — not pre-verified here because live API access requires the production token at execution time. The plan accounts for all possible outcomes with documented fallback strategies.
+
+1. **What is the exact СПГЗ code field name in goszakup GraphQL Lots?** — RESOLVED AT EXECUTION
    - What we know: `lots_data` JSONB in the DB holds the raw Lots array; existing query fetches `id, lotNumber, nameRu, nameKz, descriptionRu, amount, refLotStatusId`
-   - What's unclear: the field name for KTRU/СПГЗ classifier code (might be `refEnstruCode`, `ktruCode`, or something else)
-   - Recommendation: Add a one-time GraphQL introspection task in Wave 1, Task 2: `query { __type(name: "Lot") { fields { name } } }`. Use the result to populate `spgz_code` mapping. Make `spgz_code` nullable so the column exists even before the field name is confirmed.
+   - Assumed value: `refEnstruCode` (confidence: LOW)
+   - **Resolution path**: 07-02 Task 1 STEP 1 runs `query { __type(name: "Lot") { fields { name } } }` against live API, confirms actual field name, and uses it in the batch query. `spgz_code` column is nullable so the migration is safe regardless.
 
-2. **Does goszakup GraphQL `TrdBuy` filter support `lastUpdateDate` comparison operators (gte)?**
+2. **Does goszakup GraphQL `TrdBuy` filter support `lastUpdateDate` comparison operators (gte)?** — RESOLVED AT EXECUTION
    - What we know: the `numberAnno` filter uses direct string equality. The `lastUpdateDate` field appears in responses.
-   - What's unclear: whether the filter API supports range operators like `{gte: "..."}`
-   - Recommendation: If `gte` is not supported, alternative is to paginate all tenders ordered by `lastUpdateDate` DESC and stop when `lastUpdateDate < last_polled_at`. Document whichever approach works in a `# SPIKE-BATCH` comment in the code.
+   - **Resolution path**: 07-02 Task 1 STEP 1 tests the filter. Fallback (if gte unsupported): paginate all tenders ordered by `lastUpdateDate` DESC, stop when `lastUpdateDate < last_polled_at`. Either outcome documented as `# SPIKE-BATCH` comment in code.
 
-3. **Should /discovery-filters be a separate page or a section within /profile?**
-   - What we know: D-10 says one filter set per user; D-12 says /discovery is the feed page
-   - What's unclear: whether the filter configuration lives at `/discovery-filters`, `/settings/discovery`, or as a drawer/modal on `/discovery` itself
-   - Recommendation: Create `/discovery-filters` as a standalone page (simplest; follows existing pattern of separate pages for profile, documents, etc.)
+3. **Should /discovery-filters be a separate page or a section within /profile?** — RESOLVED (D-12)
+   - CONTEXT.md D-12 decision: `/discovery-filters` as a standalone page, following existing pattern (documents, profile each have their own page).
 
 ---
 
