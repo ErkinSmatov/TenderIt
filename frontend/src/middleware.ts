@@ -2,7 +2,7 @@ import { jwtVerify } from 'jose'
 import { NextRequest, NextResponse } from 'next/server'
 
 const SECRET = new TextEncoder().encode(process.env.JWT_SECRET!)
-const protectedRoutes = ['/dashboard', '/profile', '/tenders']
+const protectedRoutes = ['/dashboard', '/profile', '/tenders', '/applications', '/documents']
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname

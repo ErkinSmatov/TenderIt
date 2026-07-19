@@ -2,7 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from arq.connections import ArqRedis, RedisSettings
+from arq.connections import ArqRedis, RedisSettings, create_pool
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(ensure_bucket_exists)
 
     # Initialize ARQ Redis pool for enqueue_job in the webhook handler
-    arq_redis: ArqRedis = await ArqRedis.create(
+    arq_redis: ArqRedis = await create_pool(
         RedisSettings.from_dsn(settings.redis_url)
     )
     app.state.arq_redis = arq_redis
