@@ -64,6 +64,15 @@ class Tender(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    # Phase 7 Discovery & Matching — added by migration 0005
+    # source: which platform published the tender (only 'goszakup' in v1; D-01 locks sk.kz to v2)
+    source: Mapped[str] = mapped_column(Text, nullable=False, server_default="goszakup")
+    # region: matches client_filters.region (exact match); NULL = region unknown
+    region: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # spgz_code: СПГЗ classifier code from goszakup Lots; NULL until goszakup field name confirmed
+    # See 07-RESEARCH.md Pitfall 7 — field name verified by 07-02 introspection query
+    spgz_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     watchlist_entries: Mapped[list["UserWatchlist"]] = relationship(
         "UserWatchlist", back_populates="tender", lazy="noload"
     )
