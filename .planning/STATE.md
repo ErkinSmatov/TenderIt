@@ -107,9 +107,9 @@ Phase 1 of 6
 
 ## Session Continuity
 
-**Last updated:** 2026-07-18
-**Last action:** 05-03 complete — portal proxy (steps 1-11), useCryptoSocket hook, 4-step ApplicationWizard
-**Next action:** 05-04 — ARQ submission worker + Telegram/WhatsApp notifications
+**Last updated:** 2026-07-20
+**Last action:** Phase 6 (Notifications) planning complete — 2 plans (06-01, 06-02), NOTIF-04 + NOTIF-06 covered, VERIFICATION PASSED
+**Next action:** /gsd-execute-phase 6 — Wave 1 (migration + notifications router + telegram_webhook extension), then Wave 2 (frontend components + settings page)
 
 ---
 

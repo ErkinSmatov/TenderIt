@@ -714,16 +714,18 @@ async with telegram.Bot(settings.telegram_bot_token) as bot:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Нужен ли `staleTime: 0` для `/notification-status` запроса при polling?**
+1. **Нужен ли `staleTime: 0` для `/notification-status` запроса при polling? (RESOLVED)**
    - Что мы знаем: QueryClient по умолчанию имеет `staleTime: 60_000` (из Providers.tsx). Это означает что `useQuery` не будет refetch если данные "свежие" (< 1 min).
    - Что неясно: при `refetchInterval: 3000`, React Query всё равно делает refetch независимо от staleTime — `refetchInterval` всегда срабатывает.
    - Рекомендация: добавить `staleTime: 0` к этому конкретному `useQuery` для ясности, но это не блокирующий вопрос.
+   - **Решение:** 06-02-PLAN.md Task 1 предписывает `staleTime: 0` явно для ясности.
 
-2. **Нужна ли queryClient.invalidateQueries после disconnect?**
+2. **Нужна ли queryClient.invalidateQueries после disconnect? (RESOLVED)**
    - Что мы знаем: React Query кэширует `['notification-status']`. После `DELETE /notifications/telegram` данные в кэше устарели.
    - Рекомендация: вызвать `queryClient.invalidateQueries({ queryKey: ['notification-status'] })` после disconnect или использовать `queryClient.setQueryData` для оптимистичного update.
+   - **Решение:** 06-02-PLAN.md Task 1 предписывает `queryClient.invalidateQueries({ queryKey: ['notification-status'] })` в onSuccess callback disconnect мутации.
 
 ---
 
