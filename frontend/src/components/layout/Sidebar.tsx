@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Search, Building2, FileText, ClipboardList, LogOut } from 'lucide-react'
+import { LayoutDashboard, Search, Building2, FileText, ClipboardList, LogOut, Sparkles, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/dashboard', label: 'Обзор', icon: LayoutDashboard },
   { href: '/tenders', label: 'Тендеры', icon: Search },
   { href: '/applications', label: 'Заявки', icon: ClipboardList },
+  { href: '/discovery', label: 'Подборка', icon: Sparkles },
   { href: '/profile', label: 'Профиль', icon: Building2 },
   { href: '/documents', label: 'Документы', icon: FileText },
 ]
@@ -62,8 +63,17 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="px-2 py-4 border-t border-sidebar-border">
+      {/* Bottom section: Telegram bot link + Logout */}
+      <div className="px-2 py-4 border-t border-sidebar-border space-y-0.5">
+        <a
+          href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Telegram бот
+        </a>
         <button
           onClick={onLogout}
           className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
