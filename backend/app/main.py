@@ -13,6 +13,7 @@ from app.db import engine
 from app.routers import auth, company, documents, health, tenders
 from app.routers import applications, goszakup_proxy
 from app.routers import telegram_webhook
+from app.routers import discovery
 from app.routers.auth import limiter
 from app.services.minio_service import ensure_bucket_exists
 
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     application.include_router(applications.router, prefix="/api", tags=["applications"])
     application.include_router(goszakup_proxy.router, prefix="/api/goszakup", tags=["goszakup-proxy"])
     application.include_router(telegram_webhook.router, prefix="/api", tags=["telegram"])
+    application.include_router(discovery.router, prefix="/api", tags=["discovery"])
 
     return application
 
