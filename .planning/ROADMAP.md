@@ -142,7 +142,7 @@
 - [x] 07-03-PLAN.md — Wave 2: matching_service + run_matching ARQ task + worker_settings extension + discovery CRUD router + main.py
 - [x] 07-04-PLAN.md — Wave 2: create_discovery_draft + send_discovery_notification + disc:* Telegram webhook handlers
 - [x] 07-05-PLAN.md — Wave 3: /discovery feed + /discovery-filters form + TenderMatchCard + StatusBadge + Sidebar + middleware
-- [ ] 07-06-PLAN.md — Wave 4: human verification checkpoint
+- [x] 07-06-PLAN.md — Wave 4: human verification checkpoint
 **UI hint**: yes
 
 ---
