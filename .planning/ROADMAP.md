@@ -120,7 +120,9 @@
   1. User can connect their Telegram account by sending `/start` to the TenderIt bot; account link is stored and used for all tender-status notifications (tender opened alerts + submission confirmations)
   2. User can connect WhatsApp via Twilio and receive the same tender-status notifications
   3. User can view their watchlist in settings — see each tracked tender with its current status, and enable/disable/remove entries
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 06-01-PLAN.md — Wave 1: migration 0008 + notifications router (3 JWT endpoints) + telegram_webhook.py /start handler + tests
+- [ ] 06-02-PLAN.md — Wave 2: TelegramConnectCard + WatchlistSettingsTable + /settings/notifications page + Sidebar Bell
 **UI hint**: yes
 
 ### Phase 7: Discovery & Matching
@@ -156,7 +158,7 @@
 | 3. Tender Lookup | 0/4 | Planned | - |
 | 4. Document Vault | 0/3 | Planned | - |
 | 5. EDS Signing & Submission | 3/5 | In Progress|  |
-| 6. Notifications | 0/0 | Not started | - |
+| 6. Notifications | 0/2 | Planned | - |
 | 7. Discovery & Matching | 0/6 | Planned | - |
 
 ---
@@ -198,9 +200,9 @@
 | APPL-07 | Phase 5 | Complete |
 | APPL-08 | Phase 5 | Complete |
 | APPL-09 | Phase 5 | Complete |
-| NOTIF-04 | Phase 6 | Telegram connect |
-| NOTIF-05 | Phase 6 | WhatsApp connect |
-| NOTIF-06 | Phase 6 | Watchlist mgmt |
+| NOTIF-04 | Phase 6 | Telegram connect — 06-01-PLAN.md |
+| NOTIF-05 | Phase 6 | WhatsApp connect — deferred to v2 (D-01) |
+| NOTIF-06 | Phase 6 | Watchlist mgmt — 06-02-PLAN.md |
 | DISC-01 | Phase 7 | client_filters CRUD (07-01, 07-03) |
 | DISC-02 | Phase 7 | ARQ batch poll 15min (07-02, 07-03) |
 | DISC-03 | Phase 7 | run_matching + matching_service (07-03) |
@@ -209,6 +211,6 @@
 | DISC-06 | Phase 7 | Sidebar Telegram bot link (07-05) |
 
 **Total mapped: 42/42**
-*(SPIKE-04, SRCH-05/06/07, NOTIF-01/02/03 → moved to v2)*
+*(SPIKE-04, SRCH-05/06/07, NOTIF-01/02/03, NOTIF-05 → moved to v2)*
 
-*Traceability updated 2026-07-19 — Phase 7 Discovery & Matching planned (6 plans, 4 waves)*
+*Traceability updated 2026-07-20 — Phase 6 Notifications planned (2 plans, 2 waves); NOTIF-05/WhatsApp deferred to v2 per D-01*
