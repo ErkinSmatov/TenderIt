@@ -6,6 +6,9 @@ Security invariants:
            Mismatches are silently ignored (do not leak existence of the resource).
   T-05-32: Immediate enqueue uses the same _job_id=f"submit:{app_id}" as the 15-min
            fallback, ensuring ARQ deduplicates them — no double submit.
+  T-07-01: disc:participate IDOR check — caller_chat_id must match match owner's telegram_chat_id.
+  T-07-02: disc:skip IDOR check — same pattern as T-07-01.
+  T-07-05: disc:* callbacks benefit from T-05-31 secret check automatically (same handler).
 
 Endpoint:
   POST /api/telegram/webhook  (prefix "/api" applied by main.py include_router)
@@ -13,11 +16,13 @@ Endpoint:
 Telegram set_webhook registration is performed in the FastAPI lifespan (main.py).
 
 Reference: 05-RESEARCH.md lines 526-564 (Pattern 4: webhook endpoint + set_webhook).
+Reference: 07-RESEARCH.md pitfall 2 (guard must accept both 'confirm' and 'disc').
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 import telegram
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -28,7 +33,9 @@ from telegram import Update
 from app.config import settings
 from app.db import get_db
 from app.models.application import Application
+from app.models.tender_match import TenderMatch
 from app.models.user import User
+from app.services.application_service import create_discovery_draft
 from app.services.redis_service import get_redis, update_confirm
 
 logger = logging.getLogger(__name__)
@@ -59,6 +66,20 @@ async def get_application_by_id(
 async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     """Fetch a User by id."""
     result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
+
+
+async def get_tender_match_by_id(
+    db: AsyncSession, match_id: int
+) -> TenderMatch | None:
+    """Fetch TenderMatch by id without user filter.
+
+    IDOR check is performed via telegram_chat_id comparison (T-07-01, T-07-02),
+    NOT via SQL filtering — same pattern as get_application_by_id.
+    """
+    result = await db.execute(
+        select(TenderMatch).where(TenderMatch.id == match_id)
+    )
     return result.scalar_one_or_none()
 
 
@@ -111,46 +132,101 @@ async def telegram_webhook(
     query = update.callback_query
     data = query.data or ""
 
-    # Parse "confirm:{action}:{app_id}"
+    # Parse "{prefix}:{action}:{id}" — accept "confirm" and "disc" prefixes
+    # Research pitfall 2: original guard only accepted "confirm"; "disc:*" was silently dropped.
     parts = data.split(":")
-    if len(parts) != 3 or parts[0] != "confirm":
+    if len(parts) != 3 or parts[0] not in ("confirm", "disc"):
         return {"ok": True}
 
-    action = parts[1]  # "yes" or "no"
-    try:
-        app_id = int(parts[2])
-    except ValueError:
-        return {"ok": True}
+    if parts[0] == "confirm":
+        action = parts[1]  # "yes" or "no"
+        try:
+            app_id = int(parts[2])
+        except ValueError:
+            return {"ok": True}
 
-    # Load application
-    app_obj = await get_application_by_id(db, app_id)
-    if app_obj is None:
-        logger.warning("telegram_webhook: app %s not found, ignoring callback", app_id)
-        return {"ok": True}
+        # Load application
+        app_obj = await get_application_by_id(db, app_id)
+        if app_obj is None:
+            logger.warning("telegram_webhook: app %s not found, ignoring callback", app_id)
+            return {"ok": True}
 
-    # T-05-30: IDOR check — caller's chat_id must match app owner's telegram_chat_id
-    caller_chat_id = query.from_user.id if query.from_user else None
-    owner = await get_user_by_id(db, app_obj.user_id)
-    if owner is None or owner.telegram_chat_id != caller_chat_id:
-        logger.warning(
-            "telegram_webhook: IDOR attempt — app %s owner chat_id=%s, caller=%s",
-            app_id,
-            owner.telegram_chat_id if owner else None,
-            caller_chat_id,
-        )
-        return {"ok": True}
+        # T-05-30: IDOR check — caller's chat_id must match app owner's telegram_chat_id
+        caller_chat_id = query.from_user.id if query.from_user else None
+        owner = await get_user_by_id(db, app_obj.user_id)
+        if owner is None or owner.telegram_chat_id != caller_chat_id:
+            logger.warning(
+                "telegram_webhook: IDOR attempt — app %s owner chat_id=%s, caller=%s",
+                app_id,
+                owner.telegram_chat_id if owner else None,
+                caller_chat_id,
+            )
+            return {"ok": True}
 
-    # Get ARQ redis pool from app state
-    redis = request.app.state.arq_redis
+        # Get ARQ redis pool from app state
+        redis = request.app.state.arq_redis
 
-    if action == "yes":
-        await update_confirm(redis, app_id, "yes")
-        await enqueue_submit(redis, app_id)
-        logger.info("telegram_webhook: app %s confirmed YES → immediate submit enqueued", app_id)
-    elif action == "no":
-        await update_confirm(redis, app_id, "no")
-        logger.info("telegram_webhook: app %s confirmed NO → cancelled", app_id)
-    else:
-        logger.warning("telegram_webhook: unknown action %r for app %s", action, app_id)
+        if action == "yes":
+            await update_confirm(redis, app_id, "yes")
+            await enqueue_submit(redis, app_id)
+            logger.info(
+                "telegram_webhook: app %s confirmed YES → immediate submit enqueued", app_id
+            )
+        elif action == "no":
+            await update_confirm(redis, app_id, "no")
+            logger.info("telegram_webhook: app %s confirmed NO → cancelled", app_id)
+        else:
+            logger.warning("telegram_webhook: unknown action %r for app %s", action, app_id)
+
+    elif parts[0] == "disc":
+        disc_action = parts[1]  # "participate" or "skip"
+        try:
+            match_id = int(parts[2])
+        except ValueError:
+            return {"ok": True}
+
+        # T-07-01 / T-07-02: IDOR check via Telegram chat_id
+        match_obj = await get_tender_match_by_id(db, match_id)
+        if match_obj is None:
+            logger.warning("telegram_webhook: disc match %s not found", match_id)
+            return {"ok": True}
+
+        caller_chat_id = query.from_user.id if query.from_user else None
+        match_owner = await get_user_by_id(db, match_obj.user_id)
+        if match_owner is None or match_owner.telegram_chat_id != caller_chat_id:
+            logger.warning(
+                "telegram_webhook: IDOR attempt on disc match %s — owner_chat=%s caller=%s",
+                match_id,
+                match_owner.telegram_chat_id if match_owner else None,
+                caller_chat_id,
+            )
+            return {"ok": True}  # T-07-05: silent ignore — same pattern as confirm IDOR
+
+        if disc_action == "participate":
+            app_obj = await create_discovery_draft(db, match_obj.user_id, match_obj.tender_id)
+            match_obj.status = "participating"
+            match_obj.decided_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            await db.commit()
+            logger.info(
+                "telegram_webhook: disc participate — match %s → app %s created",
+                match_id,
+                app_obj.id,
+            )
+        elif disc_action == "skip":
+            match_obj.status = "skipped"
+            match_obj.decided_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            await db.commit()
+            logger.info("telegram_webhook: disc skip — match %s", match_id)
+        else:
+            logger.warning(
+                "telegram_webhook: unknown disc action %r for match %s", disc_action, match_id
+            )
+
+        # Acknowledge the callback to dismiss the Telegram button loading state
+        try:
+            async with telegram.Bot(settings.telegram_bot_token) as bot:
+                await bot.answer_callback_query(callback_query_id=query.id)
+        except Exception:
+            pass  # Non-fatal — UI button will stop spinning after timeout
 
     return {"ok": True}
