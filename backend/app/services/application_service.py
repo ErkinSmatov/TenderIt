@@ -192,3 +192,32 @@ async def increment_retry(db: AsyncSession, app: Application) -> Application:
 def to_response(app: Application) -> ApplicationResponse:
     """Convert an Application ORM model to ApplicationResponse schema."""
     return ApplicationResponse.model_validate(app)
+
+
+async def create_discovery_draft(
+    db: AsyncSession,
+    user_id: int,
+    tender_id: int,
+) -> Application:
+    """Create an Application draft from a discovery match — bypasses Pydantic schema.
+
+    ApplicationCreate.lots_data_must_be_non_empty rejects empty lots, so this function
+    constructs the Application ORM object directly (Research pitfall 1 / D-05).
+    Lots are filled later via the application wizard. Status is always 'draft'.
+
+    Called by: Telegram disc:participate handler and
+    POST /api/discovery/{match_id}/participate endpoint.
+
+    Security: user_id MUST come from JWT claim or verified Telegram chat_id (D-05).
+    """
+    app = Application(
+        user_id=user_id,
+        tender_id=tender_id,
+        lots_data=[],
+        document_ids=[],
+        status="draft",
+    )
+    db.add(app)
+    await db.commit()
+    await db.refresh(app)
+    return app

@@ -1,4 +1,5 @@
-"""Telegram service — send tender-open notifications with Да/Нет inline buttons.
+"""Telegram service — send tender-open notifications with Да/Нет inline buttons,
+and discovery match notifications with Участвуем/Пропустить inline buttons.
 
 Security:
   - Bot token is read from settings, never hardcoded or logged.
@@ -6,9 +7,13 @@ Security:
     after each message (no persistent bot connection in the worker process).
 
 Reference: 05-RESEARCH.md lines 494-524 (Pattern 4: PTB send helper).
+Reference: 07-RESEARCH.md Pattern 4 (send_discovery_notification).
 """
 
 from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
 
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -58,3 +63,57 @@ async def send_tender_notification(
             ),
             reply_markup=reply_markup,
         )
+
+
+async def send_discovery_notification(
+    bot_token: str,
+    chat_id: int,
+    match_id: int,
+    tender_name: str | None,
+    customer_name: str | None,
+    total_sum: Decimal | None,
+    deadline: datetime | None,
+    region: str | None,
+) -> None:
+    """Send a Telegram discovery match card with Участвуем/Пропустить inline buttons.
+
+    Uses `async with telegram.Bot(token):` so the underlying HTTP session is
+    properly closed after the message is sent — no singleton bot instance.
+
+    Callback data format (D-04):
+      "disc:participate:{match_id}"  →  create draft application, match=participating
+      "disc:skip:{match_id}"         →  mark match as skipped
+
+    Caller MUST guard: if user.telegram_chat_id is None: return (D-03).
+
+    Args:
+        bot_token: Telegram bot token from settings.telegram_bot_token.
+        chat_id: User's Telegram chat ID (User.telegram_chat_id).
+        match_id: TenderMatch.id — embedded in callback_data.
+        tender_name: Tender name in Russian (Tender.name_ru).
+        customer_name: Customer name in Russian (Tender.customer_name_ru).
+        total_sum: Total tender sum in KZT (Tender.total_sum).
+        deadline: Submission deadline (Tender.end_date).
+        region: Tender region (Tender.region), nullable.
+    """
+    name_display = tender_name or "Тендер"
+    customer_display = customer_name or "Заказчик не указан"
+    amount_display = f"{total_sum:,.2f} ₸" if total_sum else "Сумма не указана"
+    deadline_display = deadline.strftime("%d.%m.%Y") if deadline else "Дедлайн не указан"
+    region_display = region or "Регион не указан"
+
+    text = (
+        f"Новый тендер по вашим фильтрам\n\n"
+        f"{name_display}\n\n"
+        f"Заказчик: {customer_display}\n"
+        f"Сумма: {amount_display}\n"
+        f"Дедлайн: {deadline_display}\n"
+        f"Регион: {region_display}"
+    )
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("Участвуем", callback_data=f"disc:participate:{match_id}"),
+        InlineKeyboardButton("Пропустить", callback_data=f"disc:skip:{match_id}"),
+    ]])
+
+    async with telegram.Bot(bot_token) as bot:
+        await bot.send_message(chat_id=chat_id, text=text, reply_markup=keyboard)
