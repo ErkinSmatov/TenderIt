@@ -187,8 +187,9 @@ async def telegram_webhook(
       - Stable _job_id deduplicates with 15-min fallback (T-05-32).
     """
     # T-05-31: Verify webhook secret
+    # Guard: reject if either side is empty — prevents auth bypass when secret is unconfigured.
     incoming_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if incoming_secret != settings.telegram_webhook_secret:
+    if not incoming_secret or not settings.telegram_webhook_secret or incoming_secret != settings.telegram_webhook_secret:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     body = await request.json()
