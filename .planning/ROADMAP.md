@@ -122,7 +122,7 @@
   3. User can view their watchlist in settings — see each tracked tender with its current status, and enable/disable/remove entries
 **Plans**: 2 plans
 - [x] 06-01-PLAN.md — Wave 1: migration 0008 + notifications router (3 JWT endpoints) + telegram_webhook.py /start handler + tests
-- [ ] 06-02-PLAN.md — Wave 2: TelegramConnectCard + WatchlistSettingsTable + /settings/notifications page + Sidebar Bell
+- [x] 06-02-PLAN.md — Wave 2: TelegramConnectCard + WatchlistSettingsTable + /settings/notifications page + Sidebar Bell
 **UI hint**: yes
 
 ### Phase 7: Discovery & Matching
