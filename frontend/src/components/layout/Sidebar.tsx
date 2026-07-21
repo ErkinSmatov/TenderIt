@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Search, Building2, FileText, ClipboardList, LogOut, Sparkles, ExternalLink } from 'lucide-react'
+import { LayoutDashboard, Search, Building2, FileText, ClipboardList, LogOut, Sparkles, ExternalLink, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
@@ -15,6 +15,7 @@ const navItems = [
   { href: '/discovery', label: 'Подборка', icon: Sparkles },
   { href: '/profile', label: 'Профиль', icon: Building2 },
   { href: '/documents', label: 'Документы', icon: FileText },
+  { href: '/settings/notifications', label: 'Настройки', icon: Bell },
 ]
 
 export default function Sidebar() {
