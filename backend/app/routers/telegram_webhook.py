@@ -250,6 +250,14 @@ async def telegram_webhook(
         else:
             logger.warning("telegram_webhook: unknown action %r for app %s", action, app_id)
 
+        # CR-02: Acknowledge the callback to dismiss the Telegram button loading state.
+        # Without this, Telegram shows "Bot didn't respond" on every Да/Нет press.
+        try:
+            async with telegram.Bot(settings.telegram_bot_token) as bot:
+                await bot.answer_callback_query(callback_query_id=query.id)
+        except Exception:
+            pass  # Non-fatal — same pattern as disc branch
+
     elif parts[0] == "disc":
         disc_action = parts[1]  # "participate" or "skip"
         try:
