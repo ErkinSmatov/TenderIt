@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     webhook_base_url: str = "http://localhost:8000"
     telegram_webhook_secret: str = ""
+    # Phase 6: Telegram bot username for deep-link generation (NOTIF-04, D-09)
+    # Set TELEGRAM_BOT_USERNAME env var. Empty default → deep_link broken but non-fatal in dev.
+    telegram_bot_username: str = ""
 
     @model_validator(mode="after")
     def validate_secrets(self) -> "Settings":
