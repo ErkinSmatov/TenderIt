@@ -3,7 +3,7 @@ phase: 06-notifications
 plan: "02"
 subsystem: frontend
 tags: [telegram, notifications, watchlist, react-query, polling, sidebar]
-status: partial — awaiting human-verify checkpoint (Task 3)
+status: complete
 dependency_graph:
   requires:
     - "06-01 (GET /api/notifications/status, POST /api/notifications/telegram/link-token, DELETE /api/notifications/telegram)"
@@ -38,7 +38,7 @@ decisions:
 metrics:
   duration: "~12 min"
   completed_date: "2026-07-21"
-  tasks_completed: 2
+  tasks_completed: 3
   tasks_total: 3
   files_created: 3
   files_modified: 1
@@ -54,7 +54,7 @@ metrics:
 |------|------|--------|-------|
 | 1 | TelegramConnectCard + WatchlistSettingsTable | `a5d2575` | components/notifications/TelegramConnectCard.tsx, WatchlistSettingsTable.tsx |
 | 2 | /settings/notifications page + Sidebar Bell | `71737f5` | app/(dashboard)/settings/notifications/page.tsx, components/layout/Sidebar.tsx |
-| 3 | Human verification | PENDING | — checkpoint not yet passed |
+| 3 | Human verification | `d2b1dfb` | — checkpoint: UI approved |
 
 ## Verification Results (Tasks 1 + 2)
 
@@ -106,10 +106,14 @@ No new threat surface beyond the plan's `<threat_model>`:
 - T-06-FE-03: DELETE call uses URL path from GET /api/watchlist response — no user-injected number_anno
 - T-06-FE-04: 60s timeout bounds polling; pollingActive gate prevents unnecessary queries
 
+## Human Verification Result
+
+**Task 3 checkpoint:** PASSED — user responded "approved"
+- Sidebar Bell "Настройки" entry verified
+- TelegramConnectCard connect/disconnect/polling flow verified
+- WatchlistSettingsTable per-row delete verified
+- Commit: `d2b1dfb`
+
 ## Self-Check: PASSED
 
-All 4 expected files found. Both task commits (`a5d2575`, `71737f5`) verified in git log.
-
----
-
-*Note: This summary is partial — Task 3 (human-verify checkpoint) is pending. SUMMARY will be updated after checkpoint passes.*
+All 4 expected files found. All three task commits (`a5d2575`, `71737f5`, `d2b1dfb`) verified in git log.
