@@ -101,6 +101,75 @@ async def enqueue_submit(redis, application_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Helper: handle /start TOKEN message for Telegram account linking (Phase 6, NOTIF-04)
+# ---------------------------------------------------------------------------
+
+
+async def _handle_start_command(message, db: AsyncSession) -> None:
+    """Process a /start TOKEN message to link a Telegram account to TenderIt.
+
+    T-06-04: Runs after T-05-31 secret guard — all calls to this function are already
+    authenticated by Telegram. The function is called only for message updates with text.
+
+    Flow:
+      1. Parse token from "/start TOKEN" — returns early if not a /start command or no token.
+      2. Look up User by telegram_link_token.
+      3. Check expiry — if expired, send error message, clear token fields, return.
+      4. On success — set telegram_chat_id, clear token fields, send confirmation.
+
+    Security:
+      T-06-01: token has 256-bit entropy (secrets.token_urlsafe(32)) — not guessable.
+      T-06-02: token cleared on first successful use — cannot be replayed.
+      T-06-05: timezone-aware comparison prevents naive datetime TypeErrors.
+    """
+    text = message.text or ""
+    # T-06-05 / Pitfall 1: "/start " with trailing space is mandatory — plain /start returns early
+    if not text.startswith("/start "):
+        return
+    token = text[7:].strip()
+    if not token:
+        return
+
+    chat_id = message.from_user.id if message.from_user else None
+    if not chat_id:
+        return
+
+    result = await db.execute(select(User).where(User.telegram_link_token == token))
+    user = result.scalar_one_or_none()
+
+    async with telegram.Bot(settings.telegram_bot_token) as bot:
+        if user is None:
+            await bot.send_message(
+                chat_id=chat_id,
+                text="Ссылка не найдена. Зайдите в TenderIt и получите новую.",
+            )
+            return
+
+        # T-06-05: timezone-aware expiry comparison — prevents naive/aware TypeError
+        now = datetime.now(timezone.utc)
+        if user.telegram_link_token_expires_at and user.telegram_link_token_expires_at < now:
+            # Expired — clear token but do NOT set telegram_chat_id
+            user.telegram_link_token = None
+            user.telegram_link_token_expires_at = None
+            await db.commit()
+            await bot.send_message(
+                chat_id=chat_id,
+                text="Ссылка устарела. Зайдите в TenderIt и получите новую ссылку.",
+            )
+            return
+
+        # Success: link the account — T-06-02: clear token to prevent replay
+        user.telegram_chat_id = chat_id
+        user.telegram_link_token = None
+        user.telegram_link_token_expires_at = None
+        await db.commit()
+        await bot.send_message(
+            chat_id=chat_id,
+            text="Telegram успешно подключён к TenderIt ✓",
+        )
+
+
+# ---------------------------------------------------------------------------
 # Webhook endpoint
 # ---------------------------------------------------------------------------
 
@@ -126,7 +195,9 @@ async def telegram_webhook(
     update = Update.de_json(body, bot=None)
 
     if not update.callback_query:
-        # Non-callback update (e.g. plain message) — accept silently
+        # Phase 6: handle /start TOKEN message for Telegram account linking (NOTIF-04)
+        if update.message and update.message.text:
+            await _handle_start_command(update.message, db)
         return {"ok": True}
 
     query = update.callback_query
