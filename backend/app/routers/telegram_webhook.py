@@ -196,8 +196,10 @@ async def telegram_webhook(
     update = Update.de_json(body, bot=None)
 
     if not update.callback_query:
-        # Phase 6: handle /start TOKEN message for Telegram account linking (NOTIF-04)
-        if update.message and update.message.text:
+        # Phase 6: handle /start TOKEN message for Telegram account linking (NOTIF-04).
+        # WR-02: Only dispatch for /start commands — plain messages are ignored here.
+        # The handler still guards internally but pre-filtering avoids unnecessary calls.
+        if update.message and update.message.text and update.message.text.startswith("/start"):
             await _handle_start_command(update.message, db)
         return {"ok": True}
 

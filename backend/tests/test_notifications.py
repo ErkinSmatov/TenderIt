@@ -235,11 +235,9 @@ async def test_webhook_plain_message_no_dispatch(webhook_notif_client, override_
 
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
-    # Plain message goes to _handle_start_command which returns early internally
-    # because it checks for "/start " prefix — but the webhook dispatches it first.
-    # We verify the webhook DID call the handler (message text is non-empty).
-    # The handler itself guards against non-/start text.
-    mock_handler.assert_called_once()
+    # Webhook pre-filters: only /start messages are dispatched to _handle_start_command.
+    # A plain "Hello" message must NOT reach the handler (WR-02).
+    mock_handler.assert_not_called()
 
 
 @pytest.mark.asyncio
