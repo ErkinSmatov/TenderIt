@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { ListX, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
 
@@ -20,6 +21,7 @@ interface WatchlistEntry {
 
 export function WatchlistSettingsTable() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const { data: entries, isLoading } = useQuery<WatchlistEntry[]>({
@@ -32,9 +34,13 @@ export function WatchlistSettingsTable() {
     mutationFn: (numberAnno: string) => api.delete(`/api/watchlist/${numberAnno}`),
     onMutate: (numberAnno: string) => {
       setDeletingId(numberAnno)
+      setDeleteError(null)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+    },
+    onError: (e: Error) => {
+      setDeleteError(e.message)
     },
     onSettled: () => {
       setDeletingId(null)
@@ -107,6 +113,20 @@ export function WatchlistSettingsTable() {
                 </div>
               ))}
             </div>
+          )}
+
+          {deleteError && (
+            <Alert className="text-destructive border-destructive/50 bg-destructive/10 text-xs py-2 mt-3">
+              <div className="flex items-center justify-between gap-2">
+                <span>Не удалось удалить запись: {deleteError}</span>
+                <button
+                  onClick={() => setDeleteError(null)}
+                  className="text-xs underline shrink-0"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </Alert>
           )}
         </CardContent>
       </Card>
