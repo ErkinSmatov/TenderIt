@@ -149,4 +149,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-11 — Phase 4 complete (Document Vault: MinIO storage, 6 REST document endpoints, expiry tracking, frontend UI)*
+*Last updated: 2026-07-22 — Phase 6 complete (Notifications: Telegram deep-link linking, 3 JWT endpoints, /settings/notifications + Sidebar Bell)*
