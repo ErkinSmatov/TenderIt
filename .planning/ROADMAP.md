@@ -112,14 +112,14 @@
 **UI hint**: yes
 
 ### Phase 6: Notifications
-**Goal**: Users can connect Telegram and WhatsApp to receive tender-status notifications and manage their watchlist from a settings page.
+**Goal**: Users can connect Telegram to receive tender-status notifications and manage their watchlist from a dedicated settings page.
 **Mode:** mvp
 **Depends on**: Phase 5
-**Requirements**: NOTIF-04, NOTIF-05, NOTIF-06
+**Requirements**: NOTIF-04, NOTIF-06
+**Note**: NOTIF-05 (WhatsApp/Twilio) deferred to v2 — D-01 in 06-CONTEXT.md (locked decision)
 **Success Criteria** (what must be TRUE):
-  1. User can connect their Telegram account by sending `/start` to the TenderIt bot; account link is stored and used for all tender-status notifications (tender opened alerts + submission confirmations)
-  2. User can connect WhatsApp via Twilio and receive the same tender-status notifications
-  3. User can view their watchlist in settings — see each tracked tender with its current status, and enable/disable/remove entries
+  1. User can connect their Telegram account by sending `/start TOKEN` to the TenderIt bot; account link is stored and used for all tender-status notifications (tender opened alerts + submission confirmations)
+  2. User can view their watchlist in settings — see each tracked tender with its current status, and remove entries
 **Plans**: 2 plans
 - [x] 06-01-PLAN.md — Wave 1: migration 0008 + notifications router (3 JWT endpoints) + telegram_webhook.py /start handler + tests
 - [x] 06-02-PLAN.md — Wave 2: TelegramConnectCard + WatchlistSettingsTable + /settings/notifications page + Sidebar Bell
