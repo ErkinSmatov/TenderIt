@@ -54,6 +54,15 @@ export function TelegramConnectCard() {
     }
   }, [status?.telegram_connected, pollingActive])
 
+  // WR-01: Cancel the 60-second timeout on unmount to prevent state updates on unmounted component.
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
   async function handleConnectClick() {
     try {
       const result = await api.post<{ deep_link: string }>(
