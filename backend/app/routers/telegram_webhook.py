@@ -224,9 +224,10 @@ async def telegram_webhook(
             return {"ok": True}
 
         # T-05-30: IDOR check — caller's chat_id must match app owner's telegram_chat_id
+        # CR-03: caller_chat_id is None check prevents None==None bypass for unlinked users.
         caller_chat_id = query.from_user.id if query.from_user else None
         owner = await get_user_by_id(db, app_obj.user_id)
-        if owner is None or owner.telegram_chat_id != caller_chat_id:
+        if caller_chat_id is None or owner is None or owner.telegram_chat_id != caller_chat_id:
             logger.warning(
                 "telegram_webhook: IDOR attempt — app %s owner chat_id=%s, caller=%s",
                 app_id,
@@ -271,9 +272,10 @@ async def telegram_webhook(
             logger.warning("telegram_webhook: disc match %s not found", match_id)
             return {"ok": True}
 
+        # CR-03: caller_chat_id is None check prevents None==None bypass for unlinked users.
         caller_chat_id = query.from_user.id if query.from_user else None
         match_owner = await get_user_by_id(db, match_obj.user_id)
-        if match_owner is None or match_owner.telegram_chat_id != caller_chat_id:
+        if caller_chat_id is None or match_owner is None or match_owner.telegram_chat_id != caller_chat_id:
             logger.warning(
                 "telegram_webhook: IDOR attempt on disc match %s — owner_chat=%s caller=%s",
                 match_id,
