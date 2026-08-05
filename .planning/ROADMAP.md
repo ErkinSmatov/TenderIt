@@ -16,7 +16,8 @@
 - [ ] **Phase 4: Document Vault** — Users can store, categorise, and track expiry of company documents
 - [ ] **Phase 5: EDS Signing & Submission** — Users can sign and submit applications via NCALayer
 - [ ] **Phase 6: Notifications** — Users receive Telegram and WhatsApp alerts for matching new tenders
-- [ ] **Phase 7: Discovery & Matching** — Users configure filters; system auto-matches and notifies via Telegram
+- [x] **Phase 7: Discovery & Matching** — Users configure filters; system auto-matches and notifies via Telegram
+- [ ] **Phase 8: zakup.sk.kz Discovery** — Same discovery pipeline extended to Samruk-Kazyna portal; tenders from both sources appear in one feed with one Telegram bot
 
 ---
 
@@ -145,6 +146,25 @@
 - [x] 07-04-PLAN.md — Wave 2: create_discovery_draft + send_discovery_notification + disc:* Telegram webhook handlers
 - [x] 07-05-PLAN.md — Wave 3: /discovery feed + /discovery-filters form + TenderMatchCard + StatusBadge + Sidebar + middleware
 - [x] 07-06-PLAN.md — Wave 4: human verification checkpoint
+**UI hint**: yes
+
+### Phase 8: zakup.sk.kz Discovery
+**Goal**: The existing discovery pipeline is extended with zakup.sk.kz (Samruk-Kazyna eGP) as a second source. Tenders from both goszakup and sk.kz appear in the same /discovery feed and the same Telegram bot. Users do not need separate configuration — their existing filters (keywords, TRU code, region, amount) match against both sources simultaneously.
+**Mode:** mvp
+**Depends on**: Phase 7 (discovery pipeline, matching engine, Telegram bot)
+**Research**: 08-RESEARCH.md — API confirmed public REST, no auth for search, sort by lastModifiedDate supported
+**Success Criteria** (what must be TRUE):
+  1. ARQ worker polls zakup.sk.kz filter API every 15 minutes and upserts tenders to `tenders` table with `source='sk_kz'`
+  2. Existing matching engine runs unchanged — sk.kz tenders match against client_filters by keywords, TRU code, region, amount
+  3. User sees sk.kz matches in the same /discovery feed as goszakup matches, with a source badge "SK.KZ"
+  4. Telegram notification card includes the source name and a direct link to the tender on zakup.sk.kz
+  5. "Участвуем" on an sk.kz tender creates a draft Application — user completes submission manually on the portal (auto-submit deferred: auth flow unknown)
+**Plans**: 4 plans
+Plans:
+- [ ] 08-01-PLAN.md — Wave 1: sk_kz_service.py REST client + poll_sk_kz_discovery.py ARQ cron task
+- [ ] 08-02-PLAN.md — Wave 1: telegram_service source/portal_url extension + discovery router schema propagation
+- [ ] 08-03-PLAN.md — Wave 2: worker_settings.py registration + test_sk_kz_service.py + test_poll_sk_kz_discovery.py
+- [ ] 08-04-PLAN.md — Wave 2: frontend SourceBadge + discovery.ts types + manual submission note
 **UI hint**: yes
 
 ---
