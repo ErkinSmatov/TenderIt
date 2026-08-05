@@ -301,6 +301,18 @@ async def telegram_webhook(
             match_obj.decided_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await db.commit()
             logger.info("telegram_webhook: disc skip — match %s", match_id)
+            # Delete the notification message so it disappears from the chat
+            try:
+                async with telegram.Bot(settings.telegram_bot_token) as bot:
+                    await bot.answer_callback_query(callback_query_id=query.id)
+                    if query.message:
+                        await bot.delete_message(
+                            chat_id=query.message.chat_id,
+                            message_id=query.message.message_id,
+                        )
+            except Exception:
+                pass  # Non-fatal — message may already be deleted or too old
+            return {"ok": True}
         else:
             logger.warning(
                 "telegram_webhook: unknown disc action %r for match %s", disc_action, match_id

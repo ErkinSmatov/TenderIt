@@ -54,18 +54,41 @@ export default function TenderMatchCard({ match }: TenderMatchCardProps) {
     },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete<void>(`/api/discovery/${match.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discovery-matches'] })
+    },
+  })
+
   const isActionable = match.status !== 'participating' && match.status !== 'skipped'
   const showParticipate = match.status !== 'participating' && match.status !== 'skipped'
   const showSkip = match.status !== 'skipped' && match.status !== 'participating'
 
   return (
     <div className="rounded-lg border border-border p-4 space-y-3">
-      {/* Header: title + status badge */}
+      {/* Header: title + status badge + delete */}
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-medium leading-snug text-foreground">
           {match.tender_name_ru || 'Тендер без названия'}
         </h3>
-        <TenderMatchStatusBadge status={match.status} />
+        <div className="flex items-center gap-2 shrink-0">
+          <TenderMatchStatusBadge status={match.status} />
+          <button
+            onClick={() => deleteMutation.mutate()}
+            disabled={deleteMutation.isPending}
+            title="Удалить из подборки"
+            className="text-muted-foreground hover:text-destructive disabled:opacity-40 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Customer */}

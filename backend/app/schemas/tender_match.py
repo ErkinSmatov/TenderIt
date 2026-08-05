@@ -43,3 +43,12 @@ class TenderMatchResponse(BaseModel):
     # end_date = submission deadline (tender.end_date, NOT a separate deadline_at column)
     end_date: Optional[datetime] = None
     region: Optional[str] = None
+
+
+class TenderMatchListResponse(BaseModel):
+    """Paginated response for GET /api/discovery/matches."""
+
+    items: list[TenderMatchResponse]
+    total: int
+    page: int
+    page_size: int

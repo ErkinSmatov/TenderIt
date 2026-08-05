@@ -14,6 +14,9 @@ export interface Lot {
   nameRu?: string | null
   nameKz?: string | null
   descriptionRu?: string | null
+  /** count = количество единиц (quantity to supply). Confirmed 2026-07-23 via introspection. */
+  count?: number | null
+  /** amount = запланированная сумма (total budget). NOT quantity — do not use for price calc. */
   amount?: number | null
   refLotStatusId?: number | null
 }

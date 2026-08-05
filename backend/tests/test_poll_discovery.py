@@ -87,8 +87,7 @@ async def test_poll_writes_last_polled_at_after_success(fake_redis):
         patch(
             "app.workers.tasks.poll_goszakup_discovery.fetch_tenders_batch",
             new_callable=AsyncMock,
-            # Return 3 items on first call, empty on second (stop pagination)
-            side_effect=[fake_tenders, []],
+            return_value=fake_tenders,
         ),
         patch(
             "app.workers.tasks.poll_goszakup_discovery._upsert_tenders",
@@ -149,14 +148,22 @@ async def test_poll_does_not_write_last_polled_at_on_fetch_error(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_poll_defaults_to_7_days_ago_on_first_run(fake_redis):
-    """On first run (no Redis key), since argument passed to fetch_tenders_batch
-    is approximately 7 days before now."""
+async def test_poll_always_uses_7_day_lookback(fake_redis):
+    """since is always ~7 days ago — regardless of whether the Redis key exists.
+
+    goszakup returns TrdBuy by id DESC, not by lastUpdateDate. A 15-min window
+    would filter out all returned tenders. Always using DEFAULT_LOOKBACK_DAYS
+    ensures recently-published tenders pass the client-side date filter.
+    """
     ctx = _make_ctx(fake_redis)
+
+    # Pre-populate key as if a previous poll ran 15 minutes ago — should be ignored.
+    recent_ts = (datetime.now(tz=timezone.utc) - timedelta(minutes=15)).isoformat()
+    await fake_redis.set(LAST_POLLED_KEY, recent_ts)
 
     captured_since: list[datetime] = []
 
-    async def capture_fetch(since: datetime, limit: int = 50, offset: int = 0):
+    async def capture_fetch(since: datetime, limit: int = 50):
         captured_since.append(since)
         return []  # Empty response → poll exits early
 
@@ -172,11 +179,9 @@ async def test_poll_defaults_to_7_days_ago_on_first_run(fake_redis):
     now = datetime.now(tz=timezone.utc)
     expected_since = now - timedelta(days=7)
 
-    # Allow ±10 seconds tolerance for test execution time
     diff = abs((since_used - expected_since).total_seconds())
     assert diff < 10, (
-        f"First-run since should be ~7 days ago. "
-        f"Got: {since_used}, expected ~{expected_since} (diff={diff:.1f}s)"
+        f"since should always be ~7 days ago, got: {since_used} (diff={diff:.1f}s)"
     )
 
 
@@ -196,7 +201,7 @@ async def test_poll_enqueues_run_matching_with_upserted_ids(fake_redis):
         patch(
             "app.workers.tasks.poll_goszakup_discovery.fetch_tenders_batch",
             new_callable=AsyncMock,
-            side_effect=[fake_tenders, []],
+            return_value=fake_tenders,
         ),
         patch(
             "app.workers.tasks.poll_goszakup_discovery._upsert_tenders",

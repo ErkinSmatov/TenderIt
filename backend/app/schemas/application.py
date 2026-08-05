@@ -50,11 +50,25 @@ class ApplicationCreate(BaseModel):
         return v
 
 
+class ApplicationPatch(BaseModel):
+    """Request body for PATCH /api/applications/{id}.
+
+    Updates lots_data and document_ids on a draft application.
+    Only allowed when status == 'draft'.
+    """
+
+    lots_data: list[LotOffer]
+    document_ids: list[int] = []
+
+
 class ApplicationResponse(BaseModel):
     """Response schema for a single Application.
 
     from_attributes=True allows ORM model → Pydantic conversion.
     lots_data is stored as JSONB (list[Any]) — serialized as-is.
+
+    tender_number_anno and tender_lots_data are denormalized from a Tender JOIN
+    in GET /api/applications/{id} to support the draft-fill wizard.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -71,3 +85,7 @@ class ApplicationResponse(BaseModel):
     created_at: datetime
     ready_at: Optional[datetime]
     submitted_at: Optional[datetime]
+
+    # Denormalized from Tender JOIN — populated by GET /api/applications/{id}
+    tender_number_anno: Optional[str] = None
+    tender_lots_data: Optional[list[Any]] = None

@@ -23,8 +23,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +36,7 @@ from app.models.tender_match import TenderMatch
 from app.models.user import User
 from app.schemas.application import ApplicationResponse
 from app.schemas.client_filter import ClientFilterCreate, ClientFilterResponse
-from app.schemas.tender_match import TenderMatchResponse
+from app.schemas.tender_match import TenderMatchListResponse, TenderMatchResponse
 
 router = APIRouter()
 
@@ -116,47 +116,60 @@ async def upsert_filters(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/discovery/matches", response_model=list[TenderMatchResponse])
+@router.get("/discovery/matches", response_model=TenderMatchListResponse)
 async def get_matches(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[TenderMatchResponse]:
-    """Return discovery matches for the current user, newest first.
+    status: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> TenderMatchListResponse:
+    """Return discovery matches for the current user, newest first, with pagination.
 
     IDOR (T-07-03): WHERE user_id = current_user.id is enforced by SQLAlchemy;
     the endpoint NEVER accepts user_id from the request body or query params.
 
-    Returns empty list (not 404) when no matches exist.
+    Optional query params:
+      status   — filter by match status (matched | notified | participating | skipped)
+      page     — 1-based page number (default 1)
+      page_size — items per page (default 20, max 100)
     """
+    where = [TenderMatch.user_id == current_user.id]
+    if status:
+        where.append(TenderMatch.status == status)
+
+    total: int = (
+        await db.execute(select(func.count(TenderMatch.id)).where(*where))
+    ).scalar_one()
+
     result = await db.execute(
         select(TenderMatch, Tender)
         .join(Tender, TenderMatch.tender_id == Tender.id, isouter=True)
-        .where(TenderMatch.user_id == current_user.id)
+        .where(*where)
         .order_by(TenderMatch.created_at.desc())
+        .limit(page_size)
+        .offset((page - 1) * page_size)
     )
     rows = result.all()
 
-    responses: list[TenderMatchResponse] = []
-    for match, tender in rows:
-        responses.append(
-            TenderMatchResponse(
-                id=match.id,
-                user_id=match.user_id,
-                tender_id=match.tender_id,
-                status=match.status,
-                notified_at=match.notified_at,
-                decided_at=match.decided_at,
-                created_at=match.created_at,
-                # Denormalized tender fields for frontend display (D-12)
-                tender_name_ru=tender.name_ru if tender else None,
-                customer_name_ru=tender.customer_name_ru if tender else None,
-                total_sum=tender.total_sum if tender else None,
-                # end_date = submission deadline (Pitfall 4: no separate deadline_at)
-                end_date=tender.end_date if tender else None,
-                region=tender.region if tender else None,
-            )
+    items = [
+        TenderMatchResponse(
+            id=match.id,
+            user_id=match.user_id,
+            tender_id=match.tender_id,
+            status=match.status,
+            notified_at=match.notified_at,
+            decided_at=match.decided_at,
+            created_at=match.created_at,
+            tender_name_ru=tender.name_ru if tender else None,
+            customer_name_ru=tender.customer_name_ru if tender else None,
+            total_sum=tender.total_sum if tender else None,
+            end_date=tender.end_date if tender else None,
+            region=tender.region if tender else None,
         )
-    return responses
+        for match, tender in rows
+    ]
+    return TenderMatchListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 # ---------------------------------------------------------------------------
@@ -242,3 +255,31 @@ async def skip(
     await db.commit()
 
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# 6. DELETE /api/discovery/{match_id}
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/discovery/{match_id}", status_code=204, response_model=None)
+async def delete_match(
+    match_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Permanently remove a discovery match from the user's feed.
+
+    IDOR: WHERE id=match_id AND user_id=current_user.id; returns 404 on mismatch.
+    """
+    result = await db.execute(
+        select(TenderMatch).where(
+            TenderMatch.id == match_id,
+            TenderMatch.user_id == current_user.id,
+        )
+    )
+    match = result.scalar_one_or_none()
+    if match is None:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    await db.delete(match)
+    await db.commit()

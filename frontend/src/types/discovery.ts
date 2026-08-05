@@ -28,6 +28,16 @@ export interface TenderMatchResponse {
 }
 
 /**
+ * Paginated response for GET /api/discovery/matches.
+ */
+export interface TenderMatchListResponse {
+  items: TenderMatchResponse[]
+  total: number
+  page: number
+  page_size: number
+}
+
+/**
  * Filter settings for a single user. One active set per user (D-10).
  * Returned by GET /api/discovery/filters and PUT /api/discovery/filters.
  */

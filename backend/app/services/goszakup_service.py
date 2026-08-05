@@ -18,7 +18,7 @@ SPIKE-01 findings (2026-06-10):
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from tenacity import (
@@ -33,6 +33,24 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 GRAPHQL_URL = "https://ows.goszakup.gov.kz/v3/graphql"
+
+# Kazakhstan (Almaty) timezone — UTC+5, used to parse goszakup naive datetimes.
+_ALMATY_TZ = timezone(timedelta(hours=5))
+
+
+def parse_gz_date(value: str | None) -> datetime | None:
+    """Parse a goszakup date string ("YYYY-MM-DD HH:MM:SS") into a tz-aware datetime.
+
+    Attaches UTC+5 (Almaty) timezone — goszakup returns naive local times.
+    Returns None on any parse failure — never raises.
+    """
+    if not value:
+        return None
+    try:
+        dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        return dt.replace(tzinfo=_ALMATY_TZ)
+    except (ValueError, TypeError):
+        return None
 
 # Full TrdBuy query for tender lookup by numberAnno.
 # Includes nested RefBuyStatus and Lots for a one-shot fetch.
@@ -66,6 +84,7 @@ query TenderByNumber($numberAnno: String!) {
       nameRu
       nameKz
       descriptionRu
+      count
       amount
       refLotStatusId
     }
@@ -99,16 +118,15 @@ query TenderByNumber($numberAnno: String!) {
 # SPIKE-BATCH: СПГЗ field = refEnstruCode (ASSUMED — verify via introspection)
 _SPGZ_LOT_FIELD = "refEnstruCode"
 
-# Batch query for discovery polling. Fetches tenders without a server-side date
-# filter (see SPIKE-BATCH comment above for rationale). Pagination stops
-# client-side in fetch_tenders_batch when lastUpdateDate < since.
+# Batch query for discovery polling.
 #
-# T-07-04: asyncio.sleep(0.5) between paginated calls is applied in the CALLER
-# (poll_goszakup_discovery.py), NOT inside this function. This function fetches
-# exactly one page per call.
+# Confirmed 2026-07-22 against live API: goszakup does NOT support 'offset' on TrdBuy
+# ("Unknown argument offset"). Results are sorted by id DESC (newest first).
+# Cursor pagination via lastId (returned in extensions.pageInfo) is not yet
+# implemented — single page per poll covers all practical cases for a 15-min interval.
 BATCH_QUERY = """
-query TendersBatch($limit: Int!, $offset: Int!) {
-  TrdBuy(limit: $limit, offset: $offset) {
+query TendersBatch($limit: Int!) {
+  TrdBuy(limit: $limit) {
     id
     numberAnno
     nameRu
@@ -127,8 +145,9 @@ query TendersBatch($limit: Int!, $offset: Int!) {
       lotNumber
       nameRu
       nameKz
+      descriptionRu
+      count
       amount
-      refEnstruCode
     }
   }
 }
@@ -194,31 +213,24 @@ async def fetch_tender_by_number_anno(number_anno: str) -> dict | None:
 async def fetch_tenders_batch(
     since: datetime,
     limit: int = 50,
-    offset: int = 0,
 ) -> list[dict]:
-    """Fetch one page of tenders updated at or after `since` from goszakup GraphQL.
+    """Fetch one page of recent tenders from goszakup GraphQL.
 
-    Returns a filtered list of TrdBuy dicts for the requested page — only those
-    whose lastUpdateDate >= since (client-side filter; see SPIKE-BATCH comment).
-    Returns an empty list when there are no items at the given offset.
+    Returns TrdBuy dicts whose lastUpdateDate >= since (client-side filter).
+    Results are sorted by id DESC (newest first) — confirmed 2026-07-22.
 
-    Pagination is the responsibility of the CALLER (poll_goszakup_discovery.py):
-      - Caller increments `offset` by `limit` and repeats until result is empty
-        or len(result) < limit.
-      # T-07-04: 0.5s inter-page delay to avoid hammering goszakup
-      - asyncio.sleep(0.5) must be placed between calls in the caller, NOT here.
+    goszakup does NOT support 'offset' (confirmed 2026-07-22: "Unknown argument offset").
+    Cursor pagination via pageInfo.lastId is not yet implemented; single page per call
+    covers all practical cases for a 15-minute polling interval.
 
     Token is read from settings — never hardcoded (security invariant).
     """
-    # Format since as ISO 8601 string for client-side date comparison.
-    since_str = since.isoformat()
-
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.post(
             GRAPHQL_URL,
             json={
                 "query": BATCH_QUERY,
-                "variables": {"limit": limit, "offset": offset},
+                "variables": {"limit": limit},
             },
             headers={
                 "Authorization": f"Bearer {settings.goszakup_api_token}",
@@ -231,33 +243,43 @@ async def fetch_tenders_batch(
     body = response.json()
     items: list[dict] = body.get("data", {}).get("TrdBuy", [])
 
+    page_info = body.get("extensions", {}).get("pageInfo", {})
+    if page_info.get("hasNextPage"):
+        logger.warning(
+            "fetch_tenders_batch: hasNextPage=True (lastId=%s) — cursor pagination not "
+            "yet implemented; tenders beyond the first %d may be missed this cycle",
+            page_info.get("lastId"),
+            limit,
+        )
+
     if not items:
         return []
 
-    # SPIKE-BATCH: Client-side stop condition — filter out items older than `since`.
-    # Items with missing lastUpdateDate are included (err on side of inclusion).
-    filtered = [item for item in items if _item_updated_since(item, since_str)]
+    filtered = [item for item in items if _item_updated_since(item, since)]
     logger.debug(
-        "fetch_tenders_batch: offset=%d raw=%d filtered=%d (since=%s)",
-        offset,
+        "fetch_tenders_batch: raw=%d filtered=%d (since=%s)",
         len(items),
         len(filtered),
-        since_str,
+        since.isoformat(),
     )
     return filtered
 
 
-def _item_updated_since(item: dict, since_str: str) -> bool:
-    """Return True if item.lastUpdateDate >= since_str (lexicographic ISO comparison).
+def _item_updated_since(item: dict, since: datetime) -> bool:
+    """Return True if item.lastUpdateDate is at or after `since`.
 
-    goszakup returns lastUpdateDate as an ISO 8601 string (e.g. '2026-07-19T12:00:00.000Z').
-    Lexicographic string comparison is correct for ISO 8601 dates with consistent
-    formatting (same timezone offset / both UTC).
+    goszakup returns lastUpdateDate as "YYYY-MM-DD HH:MM:SS" (Almaty UTC+5, no tz suffix).
+    Uses _parse_gz_date for proper timezone-aware comparison — avoids the broken
+    lexicographic comparison between space-separated goszakup dates ("2026-07-22 19:34:49")
+    and T-separated ISO datetimes ("2026-07-22T14:30:00+00:00") where ASCII space (32)
+    < T (84) causes all same-day tenders to be incorrectly excluded.
 
-    Returns True (include item) if lastUpdateDate is missing or None — err on
-    the side of inclusion to avoid silently dropping tenders with missing dates.
+    Returns True (include) when lastUpdateDate is missing — err on side of inclusion.
     """
-    last_update = item.get("lastUpdateDate")
-    if not last_update:
-        return True  # include items with missing lastUpdateDate
-    return last_update >= since_str
+    last_update_str = item.get("lastUpdateDate")
+    if not last_update_str:
+        return True
+    last_update = parse_gz_date(last_update_str)
+    if last_update is None:
+        return True
+    return last_update >= since

@@ -1,26 +1,25 @@
 """ARQ cron job: poll_goszakup_discovery.
 
 Runs every 15 minutes (WorkerSettings cron_jobs, unique=True). Fetches new and
-updated tenders from goszakup GraphQL in paginated batches, upserts them to the
-tenders table, and enqueues the run_matching ARQ task.
+updated tenders from goszakup GraphQL, upserts them to the tenders table, and
+enqueues the run_matching ARQ task.
 
-Registration: worker_settings.py (plan 07-03 — MUST import run_matching.py at
-the same time, so registration is deferred to avoid a partial import cycle).
+Registration: worker_settings.py (plan 07-03).
 
 Security / invariants:
   - Uses ctx["db_session_factory"] (NEVER FastAPI get_db) — ARQ pitfall #6.
   - Bearer token for goszakup is read by goszakup_service (never logged).
-  - T-07-04: asyncio.sleep(0.5) between paginated batch calls prevents goszakup
-    rate-limit.
-  - DB writes are parameterised via SQLAlchemy pg_insert() — no raw f-string SQL
-    (T-07-ext-01).
+  - DB writes are parameterised via SQLAlchemy pg_insert() — no raw f-string SQL.
+
+Note: goszakup does NOT support 'offset' on TrdBuy (confirmed 2026-07-22).
+Single page per poll (limit=50). Cursor pagination via pageInfo.lastId is a
+known TODO — sufficient for a 15-min interval in practice.
 
 DISC-02: ARQ worker reads/writes discovery:last_polled_at in Redis.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -28,7 +27,7 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.models.tender import Tender
-from app.services.goszakup_service import fetch_tenders_batch
+from app.services.goszakup_service import fetch_tenders_batch, parse_gz_date
 
 logger = logging.getLogger(__name__)
 
@@ -41,25 +40,6 @@ DEFAULT_LOOKBACK_DAYS = 7
 # Page size for batch fetching. Matches fetch_tenders_batch default.
 _BATCH_LIMIT = 50
 
-# Kazakhstan (Almaty) timezone — UTC+5, used to interpret goszakup naive datetimes.
-_ALMATY_TZ = timezone(timedelta(hours=5))
-
-
-def _parse_gz_date(value: str | None) -> datetime | None:
-    """Parse a goszakup date string into a tz-aware datetime.
-
-    Format confirmed in SPIKE-01: "YYYY-MM-DD HH:MM:SS" (no tz suffix).
-    Attaches UTC+5 (Almaty) timezone.
-    Returns None on any parse failure — never raises.
-    """
-    if not value:
-        return None
-    try:
-        dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-        return dt.replace(tzinfo=_ALMATY_TZ)
-    except (ValueError, TypeError):
-        return None
-
 
 async def poll_goszakup_discovery(ctx: dict) -> None:
     """ARQ cron: batch-fetch new/updated tenders from goszakup and upsert to DB.
@@ -67,38 +47,28 @@ async def poll_goszakup_discovery(ctx: dict) -> None:
     Called every 15 min by WorkerSettings.cron_jobs (unique=True prevents overlap).
 
     Flow:
-      1. Read last_polled_at from Redis (default: 7 days ago on first run).
-      2. Paginate fetch_tenders_batch until response < _BATCH_LIMIT.
-         T-07-04: asyncio.sleep(0.5) between paginated calls.
+      1. Compute since = now - DEFAULT_LOOKBACK_DAYS (always 7 days).
+      2. Fetch one page of tenders from goszakup (single page — offset not supported).
       3. Upsert each tender to tenders table ON CONFLICT(number_anno) DO UPDATE.
-      4. Write last_polled_at to Redis ONLY after successful upsert.
+      4. Write last_polled_at to Redis ONLY after successful upsert (for monitoring).
       5. Enqueue run_matching ARQ job with list of upserted tender IDs.
+
+    Note on `since`: goszakup returns TrdBuy sorted by id DESC (newest created first),
+    NOT by lastUpdateDate. Using last_polled_at (15-min window) as `since` filters out
+    ALL results because the 50 newest tenders were published hours/days before the last
+    poll interval. Always use DEFAULT_LOOKBACK_DAYS so recently-published tenders pass
+    the client-side date filter every cycle. ON CONFLICT DO UPDATE makes upserts safe.
     """
     redis = ctx["redis"]
 
-    # Step 1: Read last_polled_at from Redis (default to 7 days ago on first run)
-    ts = await redis.get(LAST_POLLED_KEY)
-    if ts:
-        # Redis may return bytes or str depending on decode_responses setting
-        ts_str = ts.decode() if isinstance(ts, bytes) else ts
-        since = datetime.fromisoformat(ts_str)
-    else:
-        since = datetime.now(tz=timezone.utc) - timedelta(days=DEFAULT_LOOKBACK_DAYS)
+    # Step 1: Always look back DEFAULT_LOOKBACK_DAYS — goszakup returns newest by ID,
+    # not by lastUpdateDate, so a 15-min window filters out all results.
+    since = datetime.now(tz=timezone.utc) - timedelta(days=DEFAULT_LOOKBACK_DAYS)
     logger.info("poll_goszakup_discovery: polling since %s", since.isoformat())
 
-    # Step 2: Paginated batch fetch with T-07-04 inter-page delay
-    all_tender_dicts: list[dict] = []
-    offset = 0
-    while True:
-        batch = await fetch_tenders_batch(since, limit=_BATCH_LIMIT, offset=offset)
-        if not batch:
-            break
-        all_tender_dicts.extend(batch)
-        if len(batch) < _BATCH_LIMIT:
-            break
-        offset += _BATCH_LIMIT
-        # T-07-04: conservative rate — goszakup has no public SLA
-        await asyncio.sleep(0.5)  # T-07-04: 0.5s inter-page delay to avoid hammering goszakup
+    # Step 2: Fetch tenders updated since `since` (single page — goszakup does not
+    # support offset; cursor pagination via pageInfo.lastId is a known TODO).
+    all_tender_dicts: list[dict] = await fetch_tenders_batch(since, limit=_BATCH_LIMIT)
 
     if not all_tender_dicts:
         logger.info(
@@ -108,9 +78,7 @@ async def poll_goszakup_discovery(ctx: dict) -> None:
         await redis.set(LAST_POLLED_KEY, datetime.now(tz=timezone.utc).isoformat())
         return
 
-    # Step 3: Upsert each tender batch to DB
-    # Note: source, region, spgz_code columns are added by migration 0005 (plan 07-01).
-    # This code runs AFTER the migration is applied.
+    # Step 3: Upsert each tender to DB
     async with ctx["db_session_factory"]() as session:
         upserted_ids = await _upsert_tenders(session, all_tender_dicts)
 
@@ -129,12 +97,7 @@ async def poll_goszakup_discovery(ctx: dict) -> None:
 async def _upsert_tenders(session, tender_dicts: list[dict]) -> list[int]:
     """Upsert a list of goszakup TrdBuy dicts to the tenders table.
 
-    Uses pg_insert().on_conflict_do_update() — race-condition safe and avoids
-    duplicate rows on concurrent poll runs (T-07-ext-01: parameterized SQL only).
-
-    Columns source, region, spgz_code are from migration 0005 (plan 07-01).
-    region is always NULL (goszakup API does not expose a region field in TrdBuy).
-
+    Uses pg_insert().on_conflict_do_update() — race-condition safe.
     Returns list of upserted tender IDs.
     """
     if not tender_dicts:
@@ -157,11 +120,8 @@ async def _upsert_tenders(session, tender_dicts: list[dict]) -> list[int]:
             "publish_date": stmt.excluded.publish_date,
             "lots_data": stmt.excluded.lots_data,
             "raw_data": stmt.excluded.raw_data,
-            # New columns from migration 0005:
             "source": stmt.excluded.source,
             "spgz_code": stmt.excluded.spgz_code,
-            # region always NULL from goszakup — set only on first insert
-            # cached_at always refreshed on each upsert
             "cached_at": func.now(),
         },
     )
@@ -171,17 +131,11 @@ async def _upsert_tenders(session, tender_dicts: list[dict]) -> list[int]:
 
 
 def _map_tender_dict(data: dict) -> dict:
-    """Map a goszakup TrdBuy dict to a dict of Tender column values.
-
-    Handles date parsing (goszakup format: "YYYY-MM-DD HH:MM:SS", UTC+5 Almaty).
-    Extracts СПГЗ code from Lots[0].refEnstruCode if present.
-    # end_date = submission deadline in goszakup (called deadline_at in Phase 7 spec)
-    """
+    """Map a goszakup TrdBuy dict to a dict of Tender column values."""
     lots: list[dict] = data.get("Lots") or []
-    # SPIKE-BATCH: СПГЗ field = refEnstruCode (ASSUMED — verify via introspection)
+    # refEnstruCode confirmed invalid on 2026-07-23 — field does not exist on Lots type.
+    # spgz_code stays None until correct field name is found via schema introspection.
     spgz_code: str | None = None
-    if lots:
-        spgz_code = lots[0].get("refEnstruCode")
 
     return {
         "number_anno": data.get("numberAnno", ""),
@@ -191,13 +145,12 @@ def _map_tender_dict(data: dict) -> dict:
         "customer_name_ru": data.get("customerNameRu"),
         "customer_name_kz": data.get("customerNameKz"),
         "status_id": data.get("refBuyStatusId"),
-        "start_date": _parse_gz_date(data.get("startDate")),
-        "end_date": _parse_gz_date(data.get("endDate")),
-        "publish_date": _parse_gz_date(data.get("publishDate")),
+        "start_date": parse_gz_date(data.get("startDate")),
+        "end_date": parse_gz_date(data.get("endDate")),
+        "publish_date": parse_gz_date(data.get("publishDate")),
         "lots_data": lots or None,
         "raw_data": data,
-        # New columns from migration 0005 (plan 07-01):
-        "source": "goszakup",  # D-01: only goszakup source in v1
-        "region": None,  # goszakup TrdBuy does not expose region — stays NULL
+        "source": "goszakup",
+        "region": None,
         "spgz_code": spgz_code,
     }

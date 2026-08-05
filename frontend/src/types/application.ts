@@ -39,6 +39,9 @@ export interface ApplicationResponse {
   created_at: string      // ISO datetime
   ready_at: string | null  // ISO datetime
   submitted_at: string | null  // ISO datetime
+  // Denormalized tender fields — populated by GET /api/applications/{id} via JOIN
+  tender_number_anno: string | null
+  tender_lots_data: import('./tender').Lot[] | null
 }
 
 /** Request body for POST /api/applications. */
