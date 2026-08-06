@@ -103,8 +103,6 @@ export default function TenderMatchCard({ match }: TenderMatchCardProps) {
   })
 
   const isActionable = match.status !== 'participating' && match.status !== 'skipped'
-  const showParticipate = match.status !== 'participating' && match.status !== 'skipped'
-  const showSkip = match.status !== 'skipped' && match.status !== 'participating'
 
   return (
     <div className="rounded-lg border border-border p-4 space-y-3">
@@ -170,30 +168,26 @@ export default function TenderMatchCard({ match }: TenderMatchCardProps) {
       {/* Action buttons — hidden when status is participating or skipped */}
       {isActionable && (
         <div className="flex items-center gap-2 pt-1">
-          {showParticipate && (
-            <button
-              onClick={() => participateMutation.mutate()}
-              disabled={participateMutation.isPending}
-              className={cn(
-                buttonVariants({ size: 'sm' }),
-                'disabled:opacity-50',
-              )}
-            >
-              {participateMutation.isPending ? 'Подождите...' : 'Участвуем'}
-            </button>
-          )}
-          {showSkip && (
-            <button
-              onClick={() => skipMutation.mutate()}
-              disabled={skipMutation.isPending}
-              className={cn(
-                buttonVariants({ variant: 'outline', size: 'sm' }),
-                'disabled:opacity-50',
-              )}
-            >
-              {skipMutation.isPending ? 'Подождите...' : 'Пропустить'}
-            </button>
-          )}
+          <button
+            onClick={() => participateMutation.mutate()}
+            disabled={participateMutation.isPending}
+            className={cn(
+              buttonVariants({ size: 'sm' }),
+              'disabled:opacity-50',
+            )}
+          >
+            {participateMutation.isPending ? 'Подождите...' : 'Участвуем'}
+          </button>
+          <button
+            onClick={() => skipMutation.mutate()}
+            disabled={skipMutation.isPending}
+            className={cn(
+              buttonVariants({ variant: 'outline', size: 'sm' }),
+              'disabled:opacity-50',
+            )}
+          >
+            {skipMutation.isPending ? 'Подождите...' : 'Пропустить'}
+          </button>
         </div>
       )}
 
