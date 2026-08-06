@@ -161,8 +161,8 @@
   5. "Участвуем" on an sk.kz tender creates a draft Application — user completes submission manually on the portal (auto-submit deferred: auth flow unknown)
 **Plans**: 4 plans
 Plans:
-- [ ] 08-01-PLAN.md — Wave 1: sk_kz_service.py REST client + poll_sk_kz_discovery.py ARQ cron task
-- [ ] 08-02-PLAN.md — Wave 1: telegram_service source/portal_url extension + discovery router schema propagation
+- [x] 08-01-PLAN.md — Wave 1: sk_kz_service.py REST client + poll_sk_kz_discovery.py ARQ cron task
+- [x] 08-02-PLAN.md — Wave 1: telegram_service source/portal_url extension + discovery router schema propagation
 - [ ] 08-03-PLAN.md — Wave 2: worker_settings.py registration + test_sk_kz_service.py + test_poll_sk_kz_discovery.py
 - [ ] 08-04-PLAN.md — Wave 2: frontend SourceBadge + discovery.ts types + manual submission note
 **UI hint**: yes
