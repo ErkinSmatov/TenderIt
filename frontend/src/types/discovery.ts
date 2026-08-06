@@ -10,6 +10,7 @@ export type TenderMatchStatus = 'matched' | 'notified' | 'skipped' | 'participat
 /**
  * A discovery match record returned by GET /api/discovery/matches.
  * Contains denormalized tender fields from a JOIN in the discovery router.
+ * source and portal_url are populated from the Tender JOIN (Phase 8).
  */
 export interface TenderMatchResponse {
   id: number
@@ -25,6 +26,8 @@ export interface TenderMatchResponse {
   total_sum: string | null      // Decimal as string (e.g. "1500000.00")
   end_date: string | null       // ISO datetime (= submission deadline)
   region: string | null
+  source: string | null         // 'goszakup' | 'sk_kz' — null for records created before Phase 8
+  portal_url: string | null     // direct link to tender on source portal; null for goszakup
 }
 
 /**
