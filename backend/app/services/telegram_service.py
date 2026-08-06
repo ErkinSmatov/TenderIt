@@ -74,6 +74,8 @@ async def send_discovery_notification(
     total_sum: Decimal | None,
     deadline: datetime | None,
     region: str | None,
+    source: str = "goszakup",      # NEW — "goszakup" or "sk_kz"
+    portal_url: str | None = None,  # NEW — direct link to tender on source portal
 ) -> None:
     """Send a Telegram discovery match card with Участвуем/Пропустить inline buttons.
 
@@ -95,6 +97,9 @@ async def send_discovery_notification(
         total_sum: Total tender sum in KZT (Tender.total_sum).
         deadline: Submission deadline (Tender.end_date).
         region: Tender region (Tender.region), nullable.
+        source: Tender source — "goszakup" (default) or "sk_kz". Used for message prefix.
+        portal_url: Optional direct URL to the tender on its source portal.
+            Appended to message when not None. Backward-compatible default=None.
     """
     name_display = tender_name or "Тендер"
     customer_display = customer_name or "Заказчик не указан"
@@ -102,14 +107,19 @@ async def send_discovery_notification(
     deadline_display = deadline.strftime("%d.%m.%Y") if deadline else "Дедлайн не указан"
     region_display = region or "Регион не указан"
 
+    # T-08-05: source_label is computed via explicit conditional — raw source value is
+    # NOT injected into message text, preventing tampering via DB-stored source strings.
+    source_label = "SK.KZ" if source == "sk_kz" else "ГОСЗАКУП"
     text = (
-        f"Новый тендер по вашим фильтрам\n\n"
+        f"[{source_label}] Новый тендер по вашим фильтрам\n\n"
         f"{name_display}\n\n"
         f"Заказчик: {customer_display}\n"
         f"Сумма: {amount_display}\n"
         f"Дедлайн: {deadline_display}\n"
         f"Регион: {region_display}"
     )
+    if portal_url:
+        text += f"\n\nСсылка: {portal_url}"
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("Участвуем", callback_data=f"disc:participate:{match_id}"),
         InlineKeyboardButton("Пропустить", callback_data=f"disc:skip:{match_id}"),

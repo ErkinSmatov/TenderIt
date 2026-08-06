@@ -38,6 +38,18 @@ from app.services.matching_service import match_tenders_for_user
 logger = logging.getLogger(__name__)
 
 
+def _portal_url(source: str | None, number_anno: str | None) -> str | None:
+    """Compute the public portal URL for a tender based on its source.
+
+    sk.kz URL pattern: /eprocsearch/tender/{number_anno}
+    Confirmed from URL structure analysis — verify by navigating to a published sk.kz tender.
+    goszakup: no stable public read-only URL — returns None.
+    """
+    if source == "sk_kz" and number_anno:
+        return f"https://zakup.sk.kz/eprocsearch/tender/{number_anno}"
+    return None
+
+
 def _utcnow() -> datetime:
     """Return current UTC time as a NAIVE datetime (no tzinfo).
 
@@ -145,6 +157,11 @@ async def run_matching(ctx: dict, new_tender_ids: list[int]) -> None:
                             # end_date = submission deadline in goszakup (Pitfall 4)
                             deadline=tender.end_date if tender else None,
                             region=tender.region if tender else None,
+                            source=tender.source if tender else "goszakup",
+                            portal_url=_portal_url(
+                                tender.source if tender else None,
+                                tender.number_anno if tender else None,
+                            ),
                         )
                         # Transition match status: matched → notified
                         match = await session.get(TenderMatch, new_match_id)
