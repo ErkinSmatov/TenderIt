@@ -52,12 +52,10 @@ def _utcnow() -> datetime:
 def _portal_url(source: str | None, number_anno: str | None) -> str | None:
     """Compute the public portal URL for a tender based on its source.
 
-    sk.kz URL pattern: /eprocsearch/tender/{number_anno}
-    Assumed from URL structure analysis — verify by navigating to a published sk.kz tender.
+    sk.kz: returns None until the correct UI URL pattern is confirmed.
+    Attempted /eprocsearch/tender/{number_anno} — returns 404 (Not Found).
     goszakup: no stable public UI URL — returns None.
     """
-    if source == "sk_kz" and number_anno:
-        return f"https://zakup.sk.kz/eprocsearch/tender/{number_anno}"
     return None
 
 
