@@ -61,7 +61,7 @@ def _utcnow() -> datetime:
 async def run_matching(ctx: dict, new_tender_ids: list[int]) -> None:
     """ARQ on-demand task: match new/updated tenders against all active user filters.
 
-    Called by poll_goszakup_discovery after each successful upsert batch.
+    Called by poll_goszakup_discovery and poll_sk_kz_discovery after each successful upsert batch.
 
     Args:
         ctx: ARQ worker context dict (must contain "db_session_factory").
@@ -75,6 +75,9 @@ async def run_matching(ctx: dict, new_tender_ids: list[int]) -> None:
         4. If new match + user.telegram_chat_id is set → send_discovery_notification.
            - Failure in step 4 is logged and swallowed (same pattern as poll_watchlist).
     """
+    from app.config import settings
+    from app.services.telegram_service import send_discovery_notification
+
     if not new_tender_ids:
         logger.debug("run_matching: empty new_tender_ids, skipping")
         return
@@ -138,13 +141,6 @@ async def run_matching(ctx: dict, new_tender_ids: list[int]) -> None:
                 if user and user.telegram_chat_id is not None:
                     tender = await session.get(Tender, tender_id)
                     try:
-                        # Lazy import — avoids ImportError when plan 07-03 and 07-04
-                        # run in parallel (send_discovery_notification is created by 07-04)
-                        from app.config import settings
-                        from app.services.telegram_service import (
-                            send_discovery_notification,
-                        )
-
                         await send_discovery_notification(
                             bot_token=settings.telegram_bot_token,
                             chat_id=user.telegram_chat_id,
