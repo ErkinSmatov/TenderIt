@@ -155,7 +155,9 @@ async def test_get_matches_idor_isolation() -> None:
         # User A's feed must be empty (not 404, just empty list)
         resp = await ac_a.get("/api/discovery/matches")
         assert resp.status_code == 200, resp.text
-        matches = resp.json()
+        data = resp.json()
+        # Response is TenderMatchListResponse: {"items": [...], "total": ..., ...}
+        matches = data["items"]
         # User A should NOT see User B's match
         assert all(m["user_id"] != user_b_id for m in matches), (
             "IDOR: User A can see User B's match"

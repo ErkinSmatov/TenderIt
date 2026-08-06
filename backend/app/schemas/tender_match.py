@@ -5,6 +5,7 @@ TenderMatchResponse — response schema for GET /api/discovery/matches.
 Tender fields (name_ru, customer_name_ru, total_sum, end_date, region) are denormalized
 for frontend use — populated by JOIN in the discovery router.
 end_date IS the submission deadline (see 07-RESEARCH.md Pitfall 4; no deadline_at column).
+source and portal_url are also denormalized from the Tender JOIN.
 """
 
 from __future__ import annotations
@@ -43,6 +44,8 @@ class TenderMatchResponse(BaseModel):
     # end_date = submission deadline (tender.end_date, NOT a separate deadline_at column)
     end_date: Optional[datetime] = None
     region: Optional[str] = None
+    source: Optional[str] = None       # NEW — 'goszakup' | 'sk_kz' (from Tender.source)
+    portal_url: Optional[str] = None   # NEW — human-readable portal URL for the source platform
 
 
 class TenderMatchListResponse(BaseModel):

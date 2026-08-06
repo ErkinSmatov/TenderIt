@@ -49,6 +49,18 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _portal_url(source: str | None, number_anno: str | None) -> str | None:
+    """Compute the public portal URL for a tender based on its source.
+
+    sk.kz URL pattern: /eprocsearch/tender/{number_anno}
+    Assumed from URL structure analysis — verify by navigating to a published sk.kz tender.
+    goszakup: no stable public UI URL — returns None.
+    """
+    if source == "sk_kz" and number_anno:
+        return f"https://zakup.sk.kz/eprocsearch/tender/{number_anno}"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # 1. GET /api/discovery/filters
 # ---------------------------------------------------------------------------
@@ -166,6 +178,11 @@ async def get_matches(
             total_sum=tender.total_sum if tender else None,
             end_date=tender.end_date if tender else None,
             region=tender.region if tender else None,
+            source=tender.source if tender else None,
+            portal_url=_portal_url(
+                tender.source if tender else None,
+                tender.number_anno if tender else None,
+            ),
         )
         for match, tender in rows
     ]
