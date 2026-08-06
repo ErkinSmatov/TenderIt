@@ -74,6 +74,10 @@ export default function TenderMatchCard({ match }: TenderMatchCardProps) {
     onSuccess: (data) => {
       router.push(`/applications/${data.id}`)
     },
+    onError: (err) => {
+      console.error('Ошибка при подаче заявки:', err)
+      // TODO: заменить на toast('Не удалось подать заявку. Попробуйте снова.')
+    },
   })
 
   const skipMutation = useMutation({
@@ -81,12 +85,20 @@ export default function TenderMatchCard({ match }: TenderMatchCardProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discovery-matches'] })
     },
+    onError: (err) => {
+      console.error('Ошибка при пропуске тендера:', err)
+      // TODO: заменить на toast('Не удалось пропустить тендер. Попробуйте снова.')
+    },
   })
 
   const deleteMutation = useMutation({
     mutationFn: () => api.delete<void>(`/api/discovery/${match.id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discovery-matches'] })
+    },
+    onError: (err) => {
+      console.error('Ошибка при удалении подборки:', err)
+      // TODO: заменить на toast('Не удалось удалить подборку. Попробуйте снова.')
     },
   })
 
