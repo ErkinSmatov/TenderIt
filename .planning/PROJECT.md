@@ -55,7 +55,7 @@
 
 - Мультикомпания (несколько компаний на одном аккаунте) — усложняет MVP
 - Монетизация / подписочная модель — после валидации
-- Самрук-Казына, другие платформы — v2 после MVP
+- Самрук-Казына автоподача — v2 после MVP (discovery реализовано в Phase 8)
 - Аналитика тендеров / рекомендации — v2
 - Мобильное приложение — веб достаточно для MVP
 
@@ -149,4 +149,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-22 — Phase 6 complete (Notifications: Telegram deep-link linking, 3 JWT endpoints, /settings/notifications + Sidebar Bell)*
+*Last updated: 2026-08-06 — Phase 8 complete (zakup.sk.kz Discovery: sk_kz_service, poll cron, SourceBadge, source/portal_url propagation. Portal URL unconfirmed — _portal_url returns None until correct UI URL is found)*
