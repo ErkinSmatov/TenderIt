@@ -113,11 +113,18 @@ async def fetch_sk_tenders_page(
         response.raise_for_status()
 
     # Response is a raw JSON array — NOT wrapped in {"data": ...} like goszakup GraphQL.
-    items: list[dict] = response.json()
+    items = response.json()
+
+    if not isinstance(items, list):
+        logger.error(
+            "sk.kz filter returned unexpected type %s (expected list): %r",
+            type(items).__name__,
+            str(items)[:200],
+        )
+        return []
 
     # Filter by lastModifiedDate client-side.
-    # Early-stop rationale: sk.kz returns results sorted by lastModifiedDate desc,
-    # so once an item is older than `since`, all remaining items are also older.
+    # Items are sorted by lastModifiedDate desc; filter keeps only items >= since.
     return [item for item in items if _item_updated_since(item, since)]
 
 
