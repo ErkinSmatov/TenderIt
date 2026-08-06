@@ -35,6 +35,35 @@ function formatDeadline(end_date: string | null): string {
   return d.toLocaleDateString('ru-RU')
 }
 
+function SourceBadge({
+  source,
+  portalUrl,
+}: {
+  source: string | undefined | null
+  portalUrl?: string | null
+}) {
+  const label = source === 'sk_kz' ? 'SK.KZ' : 'ГОСЗАКУП'
+  const colorClass =
+    source === 'sk_kz'
+      ? 'border-blue-200 bg-blue-50 text-blue-700'
+      : 'border-gray-200 bg-gray-100 text-gray-600'
+  const badge = (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${colorClass}`}
+    >
+      {label}
+    </span>
+  )
+  if (portalUrl) {
+    return (
+      <a href={portalUrl} target="_blank" rel="noopener noreferrer">
+        {badge}
+      </a>
+    )
+  }
+  return badge
+}
+
 export default function TenderMatchCard({ match }: TenderMatchCardProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -121,9 +150,7 @@ export default function TenderMatchCard({ match }: TenderMatchCardProps) {
             Источник
           </span>
           <p className="mt-0.5">
-            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
-              goszakup
-            </span>
+            <SourceBadge source={match.source} portalUrl={match.portal_url} />
           </p>
         </div>
       </div>
@@ -156,6 +183,13 @@ export default function TenderMatchCard({ match }: TenderMatchCardProps) {
             </button>
           )}
         </div>
+      )}
+
+      {/* Manual submission note for sk.kz tenders when participating */}
+      {match.source === 'sk_kz' && match.status === 'participating' && (
+        <p className="mt-2 text-xs text-amber-600">
+          Заявку нужно подать вручную на zakup.sk.kz
+        </p>
       )}
     </div>
   )
