@@ -12,6 +12,7 @@ Jobs:
               [run_matching]               — enqueued by poll_goszakup_discovery (D-07).
   cron_jobs:  [poll_watchlist_tenders]    — every 5 min, unique=True.
               [poll_goszakup_discovery]   — every 15 min, unique=True (D-06).
+              [poll_sk_kz_discovery]    — every 15 min, unique=True (Phase 8 sk.kz discovery).
 
 Reference: 05-RESEARCH.md lines 377-419 (Pattern 2: WorkerSettings).
 Pitfall:    05-RESEARCH.md lines 770-776 (ARQ startup without DB context manager).
@@ -29,6 +30,7 @@ from sqlalchemy.orm import sessionmaker
 from app.config import settings
 from app.workers.tasks.auto_submit import auto_submit_application
 from app.workers.tasks.poll_goszakup_discovery import poll_goszakup_discovery
+from app.workers.tasks.poll_sk_kz_discovery import poll_sk_kz_discovery
 from app.workers.tasks.poll_watchlist import poll_watchlist_tenders
 from app.workers.tasks.run_matching import run_matching
 
@@ -69,6 +71,7 @@ class WorkerSettings:
     # Cron jobs:
     #   poll_watchlist_tenders  — every 5 min (Phase 5 auto-submit pipeline)
     #   poll_goszakup_discovery — every 15 min (Phase 7 discovery pipeline, D-06)
+    #   poll_sk_kz_discovery    — every 15 min (Phase 8 sk.kz discovery)
     cron_jobs = [
         cron(
             poll_watchlist_tenders,
@@ -77,6 +80,11 @@ class WorkerSettings:
         ),
         cron(
             poll_goszakup_discovery,
+            minute={0, 15, 30, 45},
+            unique=True,
+        ),
+        cron(
+            poll_sk_kz_discovery,
             minute={0, 15, 30, 45},
             unique=True,
         ),
