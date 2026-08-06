@@ -42,6 +42,10 @@ DEFAULT_LOOKBACK_HOURS = 24
 # Page size for batch polling — matches sk_kz_service default
 _PAGE_SIZE = 50
 
+# Maximum pages to fetch per poll run — bounds the loop for safety (handles
+# first-run 24h window and recovery after downtime without unbounded loops)
+_MAX_PAGES = 5
+
 
 async def poll_sk_kz_discovery(ctx: dict) -> None:
     """ARQ cron: batch-fetch new/updated tenders from zakup.sk.kz and upsert to DB.
@@ -50,7 +54,7 @@ async def poll_sk_kz_discovery(ctx: dict) -> None:
 
     Flow:
       1. Read sk_kz:last_polled_at from Redis (or use DEFAULT_LOOKBACK_HOURS on first run).
-      2. Fetch page 0 from sk.kz filter API; early-stop when items older than since.
+      2. Fetch pages (up to _MAX_PAGES) from sk.kz filter API with pagination loop and early-stop.
       3. Upsert each tender with source='sk_kz' via pg_insert ON CONFLICT(number_anno).
       4. Write sk_kz:last_polled_at to Redis ONLY after successful upsert (atomicity invariant).
       5. Enqueue run_matching ARQ job with list of upserted tender IDs.
@@ -65,9 +69,19 @@ async def poll_sk_kz_discovery(ctx: dict) -> None:
         since = datetime.now(tz=timezone.utc) - timedelta(hours=DEFAULT_LOOKBACK_HOURS)
     logger.info("poll_sk_kz_discovery: polling since %s", since.isoformat())
 
-    # Step 2: Fetch (single page — sufficient for 15-min interval with 24h lookback;
-    # sk.kz sorts by lastModifiedDate desc so <50 new tenders is realistic)
-    all_tender_dicts = await fetch_sk_tenders_page(since, page=0, size=_PAGE_SIZE)
+    # Step 2: Fetch all pages with early-stop (handles first-run 24h window and
+    # recovery after downtime). _MAX_PAGES bounds the loop for safety.
+    page = 0
+    all_tender_dicts: list[dict] = []
+    while page < _MAX_PAGES:
+        page_items = await fetch_sk_tenders_page(since, page=page, size=_PAGE_SIZE)
+        if not page_items:
+            break
+        all_tender_dicts.extend(page_items)
+        if len(page_items) < _PAGE_SIZE:
+            # Last page — no more new tenders beyond this point
+            break
+        page += 1
 
     # Step 3: Early exit if no results
     if not all_tender_dicts:
