@@ -28,7 +28,7 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.models.tender import Tender
-from app.services.sk_kz_service import fetch_sk_tenders_page, parse_sk_date, _map_sk_tender
+from app.services.sk_kz_service import fetch_sk_tenders_page, map_sk_tender
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ async def _upsert_tenders(session, tender_dicts: list[dict]) -> list[int]:
     if not tender_dicts:
         return []
 
-    rows = [_map_sk_tender(t) for t in tender_dicts]
+    rows = [map_sk_tender(t) for t in tender_dicts]
 
     stmt = pg_insert(Tender).values(rows)
     stmt = stmt.on_conflict_do_update(

@@ -128,7 +128,7 @@ async def fetch_sk_tenders_page(
     return [item for item in items if _item_updated_since(item, since)]
 
 
-def _map_sk_tender(data: dict) -> dict:
+def map_sk_tender(data: dict) -> dict:
     """Map a zakup.sk.kz filter response item to Tender column values.
 
     Field mapping (from 08-RESEARCH.md and 08-PATTERNS.md):
